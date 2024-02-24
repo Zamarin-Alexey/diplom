@@ -14,10 +14,10 @@ class Noise:
         self.q = q
 
     def get_noise(self, U1, U2):
-        A1 = self._db_to_times(U1 / self.q)
-        A2 = self._db_to_times(U2 / self.q)
-        N1 = 0 * random() * 2 * math.pi
-        N2 = 0 * random() * 2 * math.pi
+        A1 = U1 / self._db_to_times(self.q)
+        A2 = U2 / self._db_to_times(self.q)
+        N1 = A1 * random() * 2 * math.pi
+        N2 = A2 * random() * 2 * math.pi
         return N1, N2
 
     @staticmethod
@@ -103,3 +103,4 @@ class DirectionCalculator:
     def calculate_accuracy(self, phi):
         accuracy = ((self.q ** 0.5) * (2 * math.pi * self.d / lambda_c) * math.cos(phi)) ** -1
         return accuracy
+

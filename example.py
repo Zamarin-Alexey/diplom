@@ -2,7 +2,7 @@ from direction_calculator import *
 import matplotlib.pyplot as plt
 import numpy as np
 
-q = 14
+q = 100
 width_deg = 60
 phi_0 = 6
 d = 0.12
@@ -43,18 +43,22 @@ plt.grid(which='minor', linestyle=':')
 plt.tight_layout()
 plt.show()
 
-A_arr, phi_arr = [], []
+A1_arr, phi1_arr = [], []
+A2_arr, phi2_arr = [], []
 for E1, E11, E2, E22 in zip(E1_arr, E11_arr, E2_arr, E22_arr):
-    A, phi = calc.get_amplitude_and_phase(E1, E11)
-    A_arr.append(A)
-    phi_arr.append(phi)
+    A1, phi1 = calc.get_amplitude_and_phase(E1, E11)
+    A1_arr.append(A1)
+    phi1_arr.append(phi1)
+    A2, phi2 = calc.get_amplitude_and_phase(E2, E22)
+    A2_arr.append(A2)
+    phi2_arr.append(phi2)
 
-plt.plot(t_arr, A_arr, label=r'A')
-plt.plot(t_arr, phi_arr, label=r'phi')
+plt.plot(t_arr, A1_arr, label=r'A1')
+plt.plot(t_arr, A2_arr, label=r'A2')
 
 plt.xlabel('t')
 plt.ylabel('A')
-plt.title('A, phi')
+plt.title('A')
 plt.legend(fontsize=16)
 plt.minorticks_on()
 plt.grid(which='major')
@@ -62,4 +66,25 @@ plt.grid(which='minor', linestyle=':')
 plt.tight_layout()
 plt.show()
 
+
+amplitude_angle = calc.amplitude_method(sum(A1_arr)/len(A1_arr), sum(A2_arr)/len(A2_arr))
+phase_angle = calc.phase_method(sum(phi1_arr)/len(phi1_arr), sum(phi2_arr)/len(phi2_arr))
+
+angle_arr = [i for i in np.arange(-math.pi/3, math.pi/3, 0.01)]
+delta_phi_theoretic_arr = []
+delpta_phi_calc_arr = []
+for angle in angle_arr:
+    delta_phi_theoretic_arr.append(2*math.pi(d*sin(pi/180*angle)/lambda_c))
+    delpta_phi_calc_arr.append(phase_angle)
+    
+plt.plot(angle_arr, delta_phi_theoretic_arr, label=r'delta_phi_theoretic')
+plt.plot(angle_arr, delpta_phi_calc_arr, label=r'delta_phi_calc')
+plt.xlabel('phi_pel')
+plt.ylabel('delta_phi')
+plt.legend(fontsize=16)
+plt.minorticks_on()
+plt.grid(which='major')
+plt.grid(which='minor', linestyle=':')
+plt.tight_layout()
+plt.show()
 
