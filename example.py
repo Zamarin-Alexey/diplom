@@ -6,22 +6,22 @@ import numpy as np
 
 pi = math.pi
 q = 100
-width = pi / 3
+width = 60
 phi_0 = pi / 30
 d = 0.15
 K = 95
-phi_min = -pi / 3
-phi_max = pi / 3
+phi_min = -90
+phi_max = 90
 lambda_c = 9.7 * (10 ** -2)
 
 calc = DirectionCalculator(q, width, phi_0, d, K, phi_min, phi_max, lambda_c)
 
 U1, U2 = 1, 1
 
-phi_pel = 0
+phi_pel = 10
 
 K_n = 0.9
-phi_n = 0.00087
+phi_n = 0.05
 
 E1_arr, E11_arr, E2_arr, E22_arr = [], [], [], []
 
@@ -128,4 +128,4 @@ plt.grid(which='minor', linestyle=':')
 plt.tight_layout()
 plt.show()
 
-print(calc.choose_right_phi(calc.amplitude_method(A1_arr[0], A2_arr[0]), calc.phase_method(phi1_arr[0], phi2_arr[0])))
+print(rad_to_deg(calc.choose_right_phi(calc.amplitude_method(A1_arr[0], A2_arr[0]), calc.phase_method(phi1_arr[0], phi2_arr[0]))))

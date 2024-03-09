@@ -33,7 +33,7 @@ class Noise:
 class SLL:
 
     def __init__(self, width_deg):
-        width_rad = (width_deg)
+        width_rad = deg_to_rad(width_deg)
         self.a = math.pi / (width_rad / 2)
         self.b = 1.39156 / self.a
 
@@ -45,20 +45,20 @@ class SLL:
 
 class DirectionCalculator:
 
-    def __init__(self, q, width_deg, phi_0_deg, d, K, phi_min_deg, phi_max_deg, lambda_c):
+    def __init__(self, q, width_deg, phi_0_rad, d, K, phi_min_deg, phi_max_deg, lambda_c):
         self.q = q  # сигнал/шум
         self.noise = Noise(q)  # Шум
         self.sll = SLL(width_deg)  # ДНА
-        self.phi_0 = (phi_0_deg)  # начальная фаза
+        self.phi_0 = phi_0_rad  # начальная фаза
         self.d = d  # длина базы
         self.K = K  # пеленгационная чувствительность
-        self.phi_min, self.phi_max = (phi_min_deg), (phi_max_deg)  # диапазон углов
+        self.phi_min, self.phi_max = deg_to_rad(phi_min_deg), deg_to_rad(phi_max_deg)  # диапазон углов
         self.lambda_c = lambda_c
         self.omega_c = 2 * math.pi * c / lambda_c
 
     def get_E(self, U1, U2, phi_pel_deg, t, K_n, phi_n_deg):
-        phi_n = (phi_n_deg)
-        phi_pel = (phi_pel_deg)
+        phi_n = deg_to_rad(phi_n_deg)
+        phi_pel = deg_to_rad(phi_pel_deg)
 
         G1, G2 = self.sll.get_sll(phi_pel)
         N1, N2 = self.noise.get_noise(U1, U2)
@@ -72,7 +72,7 @@ class DirectionCalculator:
 
     @staticmethod
     def get_amplitude_and_phase(Ex, Exx):
-        A = math.sqrt(Ex ** 2 + Exx ** 2)
+        A = math.sqrt((Ex ** 2) + (Exx ** 2))
         phi = math.atan2(Exx, Ex)
         return A, phi
 
@@ -80,8 +80,8 @@ class DirectionCalculator:
         A = self.K * ((A1 - A2) / (A1 + A2))
         return A
 
-    def phase_method(self, phi_1, phi_2):
-        delta_phi = 2 * math.pi * ((phi_2 - phi_1) % 1) - math.pi
+    def phase_method(self, phi_1_rad, phi_2_rad):
+        delta_phi = 2 * math.pi * ((phi_2_rad - phi_1_rad) % 1) - math.pi
         inters = set()
         n = 0
         while 1:
@@ -93,13 +93,10 @@ class DirectionCalculator:
             if pos_val <= 1 and math.asin(pos_val) < self.phi_max:
                 stop_flag = True
                 inters.add(math.asin(pos_val))
-                print(math.asin(pos_val), end=' ')
             if neg_val >= -1 and math.asin(pos_val) > self.phi_min:
                 stop_flag = True
                 inters.add(math.asin(neg_val))
-                print(math.asin(neg_val), end=' ')
             if stop_flag:
-                print("\n")
                 break
         return inters
 
