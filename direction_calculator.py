@@ -21,8 +21,8 @@ class Noise:
     def get_noise(self, U1, U2):
         A1 = U1 / self._db_to_times(self.q)
         A2 = U2 / self._db_to_times(self.q)
-        N1 = 0 * random() * 2 * math.pi
-        N2 = 0 * random() * 2 * math.pi
+        N1 = A1 * random() * 2 * math.pi
+        N2 = A2 * random() * 2 * math.pi
         return N1, N2
 
     @staticmethod
