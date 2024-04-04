@@ -1,11 +1,9 @@
-import math
-
 from direction_calculator import *
 import matplotlib.pyplot as plt
 import numpy as np
 
 pi = math.pi
-q = 100
+q = 14
 width = 60
 phi_0 = pi / 30
 d = 0.15

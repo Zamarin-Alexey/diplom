@@ -1,17 +1,11 @@
 import math
 from random import random
 
-c = 299792458
+import numpy as np
 
+import my_math
 
-def deg_to_rad(deg):
-    rad = deg * math.pi / 180.0
-    return rad
-
-
-def rad_to_deg(rad):
-    deg = rad / math.pi * 180
-    return deg
+C = 299792458
 
 
 class Noise:
@@ -19,56 +13,64 @@ class Noise:
         self.q = q
 
     def get_noise(self, U1, U2):
-        A1 = U1 / self._db_to_times(self.q)
-        A2 = U2 / self._db_to_times(self.q)
+        A1 = U1 / my_math.db_to_times(self.q)
+        A2 = U2 / my_math.db_to_times(self.q)
         N1 = A1 * random() * 2 * math.pi
         N2 = A2 * random() * 2 * math.pi
         return N1, N2
 
-    @staticmethod
-    def _db_to_times(db):
-        return 10 ** (db / 10.0)
-
 
 class SLL:
-
-    def __init__(self, width_deg):
-        width_rad = deg_to_rad(width_deg)
-        self.a = math.pi / (width_rad / 2)
-        self.b = 1.39156 / self.a
+    def __init__(self, path_to_sll, approx_mode, col, poly_degree=10):
+        sll_arr = np.loadtxt(path_to_sll, delimiter='\t', skiprows=1)
+        self.sll_func = my_math.get_approx_f(sll_arr[:, 0], sll_arr[:, col], approx_mode, poly_degree)
 
     def get_sll(self, phi_pel_rad):
-        G1 = abs(math.sin(self.a * (phi_pel_rad + self.b)) / (self.a * (phi_pel_rad + self.b)))
-        G2 = abs(math.sin(self.a * (phi_pel_rad - self.b)) / (self.a * (phi_pel_rad - self.b)))
-        return G1, G2
+        return self.sll_func(phi_pel_rad)
 
 
 class DirectionCalculator:
-
-    def __init__(self, q, width_deg, phi_0_rad, d, K, phi_min_deg, phi_max_deg, lambda_c):
+    def __init__(self, q, phi_0_rad, d, K, phi_min_deg, phi_max_deg,
+                 lambda_c, sll1_path, sll2_path, approx_mode, freq_num, poly_degree=10):
+        self.approx_mode = approx_mode
+        self.poly_degree = poly_degree
         self.q = q  # сигнал/шум
         self.noise = Noise(q)  # Шум
-        self.sll = SLL(width_deg)  # ДНА
+        self.sll1 = SLL(sll1_path, approx_mode, freq_num + 1, poly_degree)  # ДНА первой антенны
+        self.sll2 = SLL(sll2_path, approx_mode, freq_num + 1, poly_degree)  # ДНА второй антенны
         self.phi_0 = phi_0_rad  # начальная фаза
         self.d = d  # длина базы
         self.K = K  # пеленгационная чувствительность
-        self.phi_min, self.phi_max = deg_to_rad(phi_min_deg), deg_to_rad(phi_max_deg)  # диапазон углов
+        self.phi_min, self.phi_max = (my_math.deg_to_rad(phi_min_deg),
+                                      my_math.deg_to_rad(phi_max_deg))  # диапазон углов
         self.lambda_c = lambda_c
-        self.omega_c = 2 * math.pi * c / lambda_c
+        self.omega_c = 2 * math.pi * C / lambda_c
 
-    def get_E(self, U1, U2, phi_pel_deg, t, K_n, phi_n_deg):
-        phi_n = deg_to_rad(phi_n_deg)
-        phi_pel = deg_to_rad(phi_pel_deg)
+    class E:
+        def __init__(self, U1, U2, phi_pel_deg, K_n, phi_n_deg, sll1, sll2, noise,
+                     omega_c, phi_0, d, lambda_c, approx_mode, poly_degree):
+            G1 = sll1.get_sll(phi_pel_deg)
+            G2 = sll2.get_sll(phi_pel_deg)
+            phi_pel_rad = my_math.deg_to_rad(phi_pel_deg)
+            phi_n_rad = my_math.deg_to_rad(phi_n_deg)
+            G = G1 - G2
+            E1, E11, E2, E22 = [], [], [], []
+            t_arr = np.arange(0, math.pi, 0.01)
+            for t in t_arr:
+                N1, N2 = noise.get_noise(U1, U2)
+                E1.append(U1 * G * math.cos(omega_c * t + phi_0) + N1)
+                E11.append(U1 * G * math.sin(omega_c * t + phi_0) + N1)
+                E2.append(K_n * U2 * G * math.cos(omega_c * t + phi_0 + phi_n_rad + 2
+                                                  * math.pi * d * math.sin(phi_pel_rad) / lambda_c) + N2)
+                E22.append(K_n * U2 * G * math.sin(omega_c * t + phi_0 + phi_n_rad + 2
+                                                   * math.pi * d * math.sin(phi_pel_rad) / lambda_c) + N2)
+            self.E1_func = my_math.get_approx_f(t_arr, E1, approx_mode, poly_degree)
+            self.E11_func = my_math.get_approx_f(t_arr, E11, approx_mode, poly_degree)
+            self.E2_func = my_math.get_approx_f(t_arr, E2, approx_mode, poly_degree)
+            self.E22_func = my_math.get_approx_f(t_arr, E22, approx_mode, poly_degree)
 
-        G1, G2 = self.sll.get_sll(phi_pel)
-        N1, N2 = self.noise.get_noise(U1, U2)
-        E1 = U1 * G1 * math.cos(self.omega_c * t + self.phi_0) + N1
-        E11 = U1 * G1 * math.sin(self.omega_c * t + self.phi_0) + N1
-        E2 = K_n * U2 * G2 * math.cos(self.omega_c * t + self.phi_0 + phi_n + 2
-                                      * math.pi * self.d * math.sin(phi_pel) / self.lambda_c) + N2
-        E22 = K_n * U2 * G2 * math.sin(self.omega_c * t + self.phi_0 + phi_n + 2
-                                       * math.pi * self.d * math.sin(phi_pel) / self.lambda_c) + N2
-        return E1, E11, E2, E22
+        def get_E(self, t):
+            return self.E1_func(t), self.E11_func(t), self.E2_func(t), self.E22_func(t)
 
     @staticmethod
     def get_amplitude_and_phase(Ex, Exx):
@@ -93,7 +95,7 @@ class DirectionCalculator:
             if pos_val <= 1 and math.asin(pos_val) < self.phi_max:
                 stop_flag = True
                 inters.add(math.asin(pos_val))
-            if neg_val >= -1 and math.asin(pos_val) > self.phi_min:
+            if neg_val >= -1 and math.asin(neg_val) > self.phi_min:
                 stop_flag = True
                 inters.add(math.asin(neg_val))
             if stop_flag:
@@ -114,5 +116,4 @@ class DirectionCalculator:
         return best
 
     def calculate_accuracy(self, phi):
-        accuracy = ((self.q ** 0.5) * (2 * math.pi * self.d / self.lambda_c) * math.cos(phi)) ** -1
-        return accuracy
+        return ((self.q ** 0.5) * (2 * math.pi * self.d / self.lambda_c) * math.cos(phi)) ** -1
