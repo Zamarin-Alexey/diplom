@@ -111,3 +111,4 @@ class DirectionCalculator:
 
     def calculate_accuracy(self, phi):
         return ((self.q ** 0.5) * (2 * pi * self.d / self.lambda_c) * math.cos(phi)) ** -1
+
