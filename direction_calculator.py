@@ -41,8 +41,8 @@ class DirectionCalculator:
         self.phi_0 = phi_0_rad  # начальная фаза
         self.d = d  # длина базы
         self.K = K  # пеленгационная чувствительность
-        self.phi_min, self.phi_max = (my_math.deg_to_rad(phi_min_deg),
-                                      my_math.deg_to_rad(phi_max_deg))  # диапазон углов
+        self.phi_min, self.phi_max = (np.deg2rad(phi_min_deg),
+                                      np.deg2rad(phi_max_deg))  # диапазон углов
         self.lambda_c = lambda_c
         self.omega_c = 2 * math.pi * C / lambda_c
 
@@ -51,8 +51,8 @@ class DirectionCalculator:
                      omega_c, phi_0, d, lambda_c, approx_mode, poly_degree):
             G1 = sll1.get_sll(phi_pel_deg)
             G2 = sll2.get_sll(phi_pel_deg)
-            phi_pel_rad = my_math.deg_to_rad(phi_pel_deg)
-            phi_n_rad = my_math.deg_to_rad(phi_n_deg)
+            phi_pel_rad = np.deg2rad(phi_pel_deg)
+            phi_n_rad = np.deg2rad(phi_n_deg)
             G = G1 - G2
             E1, E11, E2, E22 = [], [], [], []
             t_arr = np.arange(0, math.pi, 0.01)
@@ -82,25 +82,9 @@ class DirectionCalculator:
         A = self.K * ((A1 - A2) / (A1 + A2))
         return A
 
-    def phase_method(self, phi_1_rad, phi_2_rad):
+    def phase_method(self, phi_1_rad, phi_2_rad, faz):
         delta_phi = 2 * math.pi * ((phi_2_rad - phi_1_rad) % 1) - math.pi
-        inters = set()
-        n = 0
-        while 1:
-            stop_flag = False
-            pos_val = (delta_phi + 2 * math.pi * n) * self.lambda_c / (2 * math.pi * self.d)
-            neg_val = (delta_phi + 2 * math.pi * n) * self.lambda_c / (2 * math.pi * self.d)
-
-            n += 1
-            if pos_val <= 1 and math.asin(pos_val) < self.phi_max:
-                stop_flag = True
-                inters.add(math.asin(pos_val))
-            if neg_val >= -1 and math.asin(neg_val) > self.phi_min:
-                stop_flag = True
-                inters.add(math.asin(neg_val))
-            if stop_flag:
-                break
-        return inters
+        return my_math.find_intersections(faz, delta_phi, self.phi_min, self.phi_max)
 
     @staticmethod
     def choose_right_phi(phi_amp: float, phi_phase: set[float]) -> float:
