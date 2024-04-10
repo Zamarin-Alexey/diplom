@@ -5,15 +5,9 @@ from scipy import interpolate
 
 # Load the data from the file
 data = pd.read_csv('pel_data/faz.txt', sep='\\t')
-
-# Convert degrees to radians
 data = data.apply(np.deg2rad)
-
-# Get the X values
 x = data['X'].values
-
-# Get the Y values for each frequency
-y_values = [data[column].values for column in data.columns[1:]]
+y = [data[column].values for column in data.columns[1:]]
 
 # Define a function to shift the Y values
 def shift_y_values(y_values):
@@ -52,3 +46,26 @@ for i in range(len(y_values)):
     plt.legend()
     plt.plot(x, np.rad2deg(interpolated_y_values[i]))
     plt.show()
+
+
+def func(x, k, b):
+    return k * x + b
+
+
+k = 10
+b = 5
+
+x_arr = np.arange(-math.pi / 4, math.pi / 4, 0.001)
+y_arr = [(func(x, k, b) + math.pi) % (2 * math.pi) - math.pi for x in x_arr]
+
+delta_phi = math.pi / 6
+
+inters = my_math.find_phase_intersections(k, b, delta_phi, -math.pi / 4, math.pi / 4)
+delta_phi_arr = [delta_phi for _ in x_arr]
+print(inters)
+
+plt.plot(x_arr, y_arr)
+plt.plot(x_arr, delta_phi_arr)
+plt.show()
+
+
