@@ -48,42 +48,12 @@ def get_filtered_func(x_arr, y_arr, mode, poly_degree=10):
         return lambda x: a * (math.e ** (b * (x + d))) + c
     if mode == FilterMode.BUTTER:  # Баттеруорта
         normal_cutoff = 0.3
-        b, a = butter(25, normal_cutoff, btype="low", analog=False)
+        b, a = butter(10, normal_cutoff, btype="low", analog=False)
 
         y_new = filtfilt(b, a, y_arr)
         return scipy.interpolate.interp1d(x_arr, y_new)
 
     if mode == FilterMode.SAVGOL:  # Савитского-Голея
-        y_new = savgol_filter(y_arr, 50, 10)
+        y_new = savgol_filter(y_arr, 30, 10)
         return scipy.interpolate.interp1d(x_arr, y_new)
 
-
-def find_phase_line_coeffs(x_arr, y_arr):
-    shifted_y = np.unwrap(y_arr[20:-20])
-
-    def mapping(x, k, b):
-        return k * x + b
-
-    coeffs, _ = curve_fit(mapping, x_arr[20:-20], shifted_y)
-    k, b = coeffs[0], coeffs[1]
-    return k, b
-
-
-def find_phase_intersections(k, b, delta_phi, phi_min, phi_max):
-    T = abs(-2 * pi / k)
-
-    phi = (delta_phi - b) / k
-    inters = []
-    while 1:
-        if phi < phi_min:
-            phi += T
-            continue
-        break
-
-    while 1:
-        if phi > phi_max:
-            break
-        inters.append(phi)
-        phi += T
-
-    return inters

@@ -1,26 +1,44 @@
-import my_math
-import numpy as np
 import math
-import matplotlib.pyplot as plt
-import pandas as pd
-from scipy.interpolate import interp1d
+from direction_calculator import *
 
 pi = math.pi
+q = 14
+width = 60
+phi_0 = pi / 30
+d = 0.15
+K = 0.95
+phi_min = -45
+phi_max = 45
+lambda_c = 9.7 * (10**-2)
+sll1_path = "pel_data/12.txt"
+sll2_path = "pel_data/13.txt"
+approx_mode = my_math.FilterMode.POLY
+freq_num = 6
+poly_degree = 20
+phi_pel = 35
+K_n = 0.9
+phi_n = 0.05
+U1, U2 = 1, 1
 
-data = pd.read_csv("pel_data/faz.txt", sep="\\t", engine="python")
-data = data.apply(np.deg2rad)
-x_arr = data["X"].values
-y_arr = data[data.columns[3]].values
+calc = DirectionCalculator(
+    q,
+    phi_0,
+    d,
+    K,
+    phi_min,
+    phi_max,
+    lambda_c,
+    sll1_path,
+    sll2_path,
+    approx_mode,
+    freq_num,
+    U1,
+    U2,
+    phi_pel,
+    K_n,
+    phi_n,
+    poly_degree,
+)
 
-k, b = my_math.find_phase_line_coeffs(x_arr, y_arr)
-b = b % pi
-y = pi
-x_vals = my_math.find_phase_intersections(k, b, y, -pi / 4, pi / 4)
-print(x_vals)
-new_arr = [((k * x + b) - pi) % (-2 * pi) + pi for x in x_arr]
-y_val = [y for _ in x_arr]
-
-plt.plot(x_arr, new_arr, linestyle="--")
-plt.plot(x_arr, y_arr)
-plt.plot(x_arr, y_val)
-plt.show()
+# print(calc.amplitude_method())
+print(calc.phase_method("pel_data/faz.txt", approx_mode, poly_degree))
