@@ -22,12 +22,12 @@ class Noise:
 
     def get_noise(self, U1, U2):
         if self.enable:
-            A1 = U1 / my_math.db_to_times(self.q)
-            A2 = U2 / my_math.db_to_times(self.q)
+            A1 = math.sqrt(my_math.db_to_times(self.q))*U1
+            A2 = math.sqrt(my_math.db_to_times(self.q))*U2
         else:
             A1, A2 = 0, 0
-        N1 = A1 * random() * pi / 2
-        N2 = A2 * random() * pi / 2
+        N1 = A1 * random()
+        N2 = A2 * random()
         return N1, N2
 
 
@@ -35,15 +35,16 @@ class ADFR:
     def __init__(self, sll1_path, sll2_path, col, phi_min, phi_max, approx_mode, poly_degree, canvas):
         sll1_data = pd.read_csv(sll1_path, sep="\\t", engine="python")
         
-        x_arr = np.deg2rad(sll1_data['X'].values)
+        x_arr = sll1_data['X'].values
 
         y1_arr = sll1_data[sll1_data.columns[col]].values
 
         sll2_data = pd.read_csv(sll2_path, sep="\\t", engine="python")
         y2_arr = sll2_data[sll2_data.columns[col]].values
-
+        phi_min_deg = np.rad2deg(phi_min)
+        phi_max_deg = np.rad2deg(phi_max)
         pel_char = [y1_arr[i] - y2_arr[i] for i in range(len(y1_arr))]
-        condition = (phi_min < x_arr) & (x_arr < phi_max)
+        condition = (phi_min_deg < x_arr) & (x_arr < phi_max_deg)
         indices = np.where(condition)
         
         x_arr_trunc = x_arr[indices[0][0]: indices[0][-1] + 1]
@@ -57,11 +58,14 @@ class ADFR:
         
         approxed_pel = [self.G_func(x) for x in x_arr_trunc]
         
+        canvas.axs.cla()
+                
         canvas.axs.plot(x_arr, y1_arr, label="sll1")
         canvas.axs.plot(x_arr, y2_arr, label="sll2")
-        canvas.axs.plot(x_arr, pel_char, label="pel_char")
-        canvas.axs.plot(x_arr_trunc, approxed_pel, label="approxed_pel")
+        canvas.axs.plot(x_arr, np.array(pel_char), label="pel_char")
+        canvas.axs.plot(x_arr_trunc, np.array(approxed_pel), label="approxed_pel")
         canvas.axs.legend()
+        canvas.draw()
         
         # plt.plot(x_arr, y1_arr, label="sll1")
         # plt.plot(x_arr, y2_arr, label="sll2")
@@ -108,34 +112,37 @@ class PDFR:
     def get_normed_faz(self, x):
         return (self.faz_approx_func(x) - pi) % (-2 * pi) + pi
     
+
 class E:
-    def __init__(self, U1, U2, phi_pel_deg, K_n, phi_n_deg, noise,
+    def __init__(self, phi_pel_deg, K_n, phi_n_deg, noise,
                  omega_c, phi_0_deg, ADFR, PDFR, canvas):
-        phi_pel_rad = np.deg2rad(phi_pel_deg)
         phi_n_rad = np.deg2rad(phi_n_deg)
         phi_0_rad = np.deg2rad(phi_0_deg)
         
-        G = ADFR.get_G(phi_pel_rad)
-        
-        G1 = ADFR.get_G1(phi_pel_rad)
-        G2 = ADFR.get_G2(phi_pel_rad)
-        
+        B1 = ADFR.get_G1(phi_pel_deg)
+        B2 = ADFR.get_G2(phi_pel_deg)
+        U1 = 10 ** (B1/20)
+        U2 = 10 ** (B2/20)
+
+        phi_pel_rad = np.deg2rad(phi_pel_deg)
         faz = PDFR.get_normed_faz(phi_pel_rad)
                 
         E1, E11, E2, E22 = [], [], [], []
         t_arr = np.arange(0, 10**-9, 10**-12)
         for t in t_arr:
             N1, N2 = noise.get_noise(U1, U2)
-            E1.append(U1 * G * math.cos(omega_c * t + phi_0_rad) + N1)
-            E11.append(U1 * G * math.sin(omega_c * t + phi_0_rad) + N1)
-            E2.append(K_n * U2 * G * math.cos(omega_c * t + phi_0_rad + phi_n_rad + faz) + N2)
-            E22.append(K_n * U2 * G * math.sin(omega_c * t + phi_0_rad + phi_n_rad + faz) + N2)
+            E1.append(U1 * math.cos(omega_c * t + phi_0_rad) + N1)
+            E11.append(U1 * math.sin(omega_c * t + phi_0_rad) + N1)
+            E2.append(K_n * U2 * math.cos(omega_c * t + phi_0_rad + phi_n_rad + faz) + N2)
+            E22.append(K_n * U2 * math.sin(omega_c * t + phi_0_rad + phi_n_rad + faz) + N2)
 
         self.E1_func = interpolate.interp1d(t_arr, E1)
         self.E11_func = interpolate.interp1d(t_arr, E11)
         self.E2_func = interpolate.interp1d(t_arr, E2)
         self.E22_func = interpolate.interp1d(t_arr, E22)
 
+        canvas.axs.cla()
+        
         canvas.axs.plot(t_arr, self.E1_func(t_arr), label="E1_interp")
         canvas.axs.plot(t_arr, self.E11_func(t_arr), label="E11_interp")
         canvas.axs.plot(t_arr, self.E2_func(t_arr), label="E2_interp")
@@ -145,6 +152,7 @@ class E:
         
         canvas.axs.legend()
         
+        canvas.draw()
         # plt.plot(t_arr, self.E1_func(t_arr), label="E1_interp")
         # plt.plot(t_arr, self.E11_func(t_arr), label="E11_interp")
         # plt.plot(t_arr, self.E2_func(t_arr), label="E2_interp")
@@ -162,8 +170,9 @@ class E:
 
 class DirectionCalculator:
     def __init__(self, q, phi_0_deg, phi_min_deg, phi_max_deg,
-                 lambda_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num,
-                 U1, U2, phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, adfr_canvas, amp_canvas, e_canvas, phase_canvas, ampphase_canvas):
+                 lambda_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num, 
+                 phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, adfr_canvas,
+                   amp_canvas, e_canvas, phase_canvas, ampphase_canvas):
         # print(f"q={q}")
         # print(f"phi_0={phi_0_deg}")
         # print(f"phi_min={phi_min_deg}")
@@ -197,7 +206,7 @@ class DirectionCalculator:
         self.phi_pel = np.deg2rad(phi_pel_deg)
         self.lambda_c = lambda_c
         self.omega_c = 2 * pi * C / lambda_c
-        self.E = E(U1, U2, phi_pel_deg, K_n, phi_n_deg, self.noise, self.omega_c, phi_0_deg, self.ADFR, self.PDFR, e_canvas)
+        self.E = E(phi_pel_deg, K_n, phi_n_deg, self.noise, self.omega_c, phi_0_deg, self.ADFR, self.PDFR, e_canvas)
         self.amp_canvas = amp_canvas
         self.phase_canvas = phase_canvas
         self.ampphase_canvas = ampphase_canvas
@@ -219,12 +228,14 @@ class DirectionCalculator:
             A2 = self.get_amplitude(E2, E22)
             A1_arr.append(A1)
             A2_arr.append(A2)
-            phi = np.rad2deg(self.ADFR.get_phi(A1 - A2))
+            phi = self.ADFR.get_phi(20*math.log10((A1)/(A2)))
             phi_arr.append(phi)
                 
         phi_func = my_math.get_approx_func(t_arr, phi_arr, my_math.ApproxMode.POLY, 0)
         phi_approxed = [phi_func(t) for t in t_arr]
         
+        self.amp_canvas.axs[0].cla()
+        self.amp_canvas.axs[1].cla()
         
         self.amp_canvas.axs[0].plot(t_arr, A1_arr, label="A1")
         self.amp_canvas.axs[0].plot(t_arr, A2_arr, label="A2")
@@ -233,6 +244,8 @@ class DirectionCalculator:
         
         self.amp_canvas.axs[0].legend()
         self.amp_canvas.axs[1].legend()
+        
+        self.amp_canvas.draw()
         
         # fig, axs = plt.subplots(1, 2)
         # axs[0].plot(t_arr, A1_arr, label="A1")
@@ -269,6 +282,9 @@ class DirectionCalculator:
         delta_phase_approxed_arr = [delta_phase_approxed_func(t) for t in t_arr]
         delta_phase = delta_phase_approxed_arr[0]
         
+        self.phase_canvas.axs[0].cla()
+        self.phase_canvas.axs[1].cla()
+        
         self.phase_canvas.axs[0].plot(t_arr, phase1_arr, label="phase1")
         self.phase_canvas.axs[0].plot(t_arr, phase2_arr, label="phase2")
         self.phase_canvas.axs[0].plot(t_arr, delta_phase_arr, label="delta_phase")
@@ -298,6 +314,8 @@ class DirectionCalculator:
         self.phase_canvas.axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_normed_arr), label="faz_approxed_normed")
         self.phase_canvas.axs[1].plot(deg_x_arr, np.rad2deg([delta_phase for _ in x_arr]), label="delta_phase")
         self.phase_canvas.axs[1].legend()
+        
+        self.phase_canvas.draw()
         
         # axs[1].plot(deg_x_arr, np.rad2deg(faz_arr), label="faz")
         # axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_arr), label="faz_approxed")
@@ -339,12 +357,15 @@ class DirectionCalculator:
     def ampphase_method(self, angle_amp, angles_phase):
         x_arr = np.linspace(self.phi_min, self.phi_max, 2)
         i = 0
+        self.ampphase_canvas.axs.cla()
         for inter in angles_phase:
             self.ampphase_canvas.axs.plot(x_arr, [inter for _ in x_arr], label="phi"+str(i))
             i += 1
             
         self.ampphase_canvas.axs.legend()
         self.ampphase_canvas.axs.plot(x_arr, [angle_amp for _ in x_arr], label="phi_amp")
+        
+        self.ampphase_canvas.draw()
         
         best = None
         best_diff = None
@@ -360,7 +381,7 @@ class DirectionCalculator:
         angle_amp = self.amplitude_method()
         angles_phase = self.phase_method()
         angle = self.ampphase_method(angle_amp, angles_phase)
-        accuracy = self.calculate_accuracy(angle)
+        accuracy = self.calculate_accuracy(np.deg2rad(angle))
         return angle, accuracy
 
     def calculate_accuracy(self, phi):

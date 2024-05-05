@@ -10,12 +10,11 @@ sll1_path = "pel_data/12.txt"
 sll2_path = "pel_data/13.txt"
 faz_path = "pel_data/faz.txt"
 approx_mode = my_math.ApproxMode.POLY
-freq_num = 3
-poly_degree = 10
-phi_pel = 0.0
+freq_num = 4
+poly_degree = 20
+phi_pel = 0
 K_n = 0.9
 phi_n = 0.05
-U1, U2 = 5.0, 5.0
 noise_enable = False
 
 calc = DirectionCalculator(
@@ -29,8 +28,6 @@ calc = DirectionCalculator(
     faz_path,
     approx_mode,
     freq_num,
-    U1,
-    U2,
     phi_pel,
     K_n,
     phi_n,
@@ -43,5 +40,7 @@ calc = DirectionCalculator(
     None,
 )
 
-calc.amplitude_method()
+print(calc.amplitude_method())
 print(calc.phase_method())
+
+# print(calc.calculate())

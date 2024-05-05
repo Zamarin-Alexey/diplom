@@ -12,6 +12,7 @@ pi = math.pi
 class ApproxMode(Enum):
     POLY = 0
     LINE = 1
+    INTERP = 2
 
 
 def db_to_times(db):
@@ -20,11 +21,13 @@ def db_to_times(db):
 
 def get_approx_func(x_arr, y_arr, mode, poly_degree=10):
     if mode == ApproxMode.POLY:
-        coeffs = np.polyfit(x_arr, y_arr, poly_degree)
-        return np.poly1d(coeffs)
+        return np.poly1d(np.polyfit(x_arr, y_arr, poly_degree))
     
-    # if mode == ApproxMode.LINE:
-    #     return scipy.interpolate.interp1d(x_arr, y_arr)
+    if mode == ApproxMode.INTERP:
+        return scipy.interpolate.interp1d(x_arr, y_arr)
+    
+    if mode == ApproxMode.LINE:
+        return np.poly1d(np.polyfit(x_arr, y_arr, 1))
 
     # if mode == ApproxMode.SIN:
 
