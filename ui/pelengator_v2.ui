@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>829</width>
-    <height>509</height>
+    <height>706</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -233,6 +233,29 @@
               </property>
              </widget>
             </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="k_n_label">
+              <property name="text">
+               <string>Kн</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QDoubleSpinBox" name="k_n_spinBox">
+              <property name="minimum">
+               <double>0.800000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>1.000000000000000</double>
+              </property>
+              <property name="singleStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.900000000000000</double>
+              </property>
+             </widget>
+            </item>
             <item row="3" column="0">
              <widget class="QLabel" name="angle_range_label">
               <property name="text">
@@ -243,7 +266,7 @@
             <item row="3" column="1">
              <layout class="QHBoxLayout" name="horizontalLayout_3">
               <item>
-               <widget class="QLabel" name="feom_label">
+               <widget class="QLabel" name="from_label">
                 <property name="text">
                  <string>От</string>
                 </property>
@@ -305,13 +328,27 @@
              </widget>
             </item>
             <item row="5" column="0">
+             <widget class="QLabel" name="prefilter_label">
+              <property name="text">
+               <string>Предфильтрация</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QLabel" name="prefilter_algo_label">
+              <property name="text">
+               <string>Алгоритм предфильтрации</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
              <widget class="QLabel" name="approx_mode_label">
               <property name="text">
                <string>Алгоритм аппроксимации</string>
               </property>
              </widget>
             </item>
-            <item row="5" column="1">
+            <item row="7" column="1">
              <widget class="QComboBox" name="approx_mode_combo_box">
               <property name="minimumSize">
                <size>
@@ -331,14 +368,14 @@
               </item>
              </widget>
             </item>
-            <item row="6" column="0">
+            <item row="8" column="0">
              <widget class="QLabel" name="poly_degree_label">
               <property name="text">
                <string>Степень полинома</string>
               </property>
              </widget>
             </item>
-            <item row="6" column="1">
+            <item row="8" column="1">
              <widget class="QSpinBox" name="poly_degree_spinBox">
               <property name="maximum">
                <number>50</number>
@@ -348,83 +385,53 @@
               </property>
              </widget>
             </item>
-            <item row="7" column="0">
+            <item row="9" column="0">
              <widget class="QLabel" name="noise_label">
               <property name="text">
                <string>Шум</string>
               </property>
              </widget>
             </item>
-            <item row="7" column="1">
+            <item row="9" column="1">
              <widget class="QCheckBox" name="noise_checkBox">
               <property name="text">
                <string>Вкл</string>
               </property>
              </widget>
             </item>
-            <item row="8" column="0">
+            <item row="10" column="0">
              <widget class="QLabel" name="q_label">
               <property name="text">
                <string>Сигнал/Шум, [дБ]</string>
               </property>
              </widget>
             </item>
-            <item row="8" column="1">
+            <item row="10" column="1">
              <widget class="QSpinBox" name="q_spinBox">
               <property name="value">
                <number>14</number>
               </property>
              </widget>
             </item>
-            <item row="9" column="0">
-             <widget class="QLabel" name="u_1_label">
+            <item row="5" column="1">
+             <widget class="QCheckBox" name="prefilter_checkBox">
               <property name="text">
-               <string>U1, [В]</string>
+               <string>Вкл</string>
               </property>
              </widget>
             </item>
-            <item row="10" column="0">
-             <widget class="QLabel" name="u_2_label">
-              <property name="text">
-               <string>U2, [В]</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="k_n_label">
-              <property name="text">
-               <string>Kн</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QDoubleSpinBox" name="k_n_spinBox">
-              <property name="minimum">
-               <double>0.800000000000000</double>
-              </property>
-              <property name="maximum">
-               <double>1.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-              <property name="value">
-               <double>0.900000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="9" column="1">
-             <widget class="QDoubleSpinBox" name="u_1_spinBox">
-              <property name="value">
-               <double>5.000000000000000</double>
-              </property>
-             </widget>
-            </item>
-            <item row="10" column="1">
-             <widget class="QDoubleSpinBox" name="u_2_spinBox">
-              <property name="value">
-               <double>5.000000000000000</double>
-              </property>
+            <item row="6" column="1">
+             <widget class="QComboBox" name="prefilter_algo_comboBox">
+              <item>
+               <property name="text">
+                <string>Савитский-Голей</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Баттеруорта</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>
@@ -519,7 +526,7 @@
                  <number>17</number>
                 </property>
                 <property name="value">
-                 <number>3</number>
+                 <number>6</number>
                 </property>
                </widget>
               </item>
