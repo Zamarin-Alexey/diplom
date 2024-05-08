@@ -1,11 +1,14 @@
 import math
 
+from matplotlib import ticker
 import numpy as np
 import pandas as pd
 
 import my_math
 
 from scipy import interpolate
+import matplotlib.pyplot as plt
+
 
 C = 299792458
 pi = math.pi
@@ -55,7 +58,13 @@ class ADFR:
         ax.plot(x_arr, y2_arr, label="ДНА 2-й антенны")
         ax.plot(x_arr, np.array(pel_char), label="Амплитудная пел. хар-ка")
         ax.plot(x_arr_trunc, np.array(approxed_pel), label="Аппроксимированная пел.хар-ка")
-        ax.legend()
+        ax.set_xlabel('φ, [град.]')
+        ax.set_ylabel('A, [Вт]')
+        ax.set_title("Амплитудная пеленгационная хар-ка")
+        ax.xaxis.set_major_locator(ticker.AutoLocator())
+        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        ax.grid(True)
+        ax.legend(loc='upper right')
         canvas.draw()
 
         
@@ -144,8 +153,14 @@ class E:
         ax.plot(t_arr, self.E11_func(t_arr), label="E11")
         ax.plot(t_arr, self.E2_func(t_arr), label="E2")
         ax.plot(t_arr, self.E22_func(t_arr), label="E22")
+        ax.set_xlabel('t, [с]')
+        ax.set_ylabel('E, [В]')
+        ax.set_title("Квадратуры на входе приемника")
+        ax.xaxis.set_major_locator(ticker.AutoLocator())
+        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        ax.grid(True)
+        ax.legend(loc='upper right')
         
-        ax.legend()
         canvas.draw()
 
          
@@ -195,20 +210,39 @@ class DirectionCalculator:
                 
         phi_func = my_math.get_approx_func(t_arr, phi_arr, my_math.ApproxMode.POLY, 0)
         phi_approxed = [phi_func(t) for t in t_arr]
+        phi_abs_max = max(abs(phi) for phi in phi_arr)
         
         self.amp_canvas.figure.clear()
-        axs = self.amp_canvas.figure.subplots(2, 1)
+        axs = self.amp_canvas.figure.subplots(1, 2)
         
-        
+        minA1, maxA1 = min(A1_arr), max(A1_arr)
+        minA2, maxA2 = min(A2_arr), max(A2_arr)
+        mixAax = min(minA1, minA2, 0)
+        maxAax = max(maxA1, maxA2, 0)
+    
         axs[0].plot(t_arr, A1_arr, label="A1")
         axs[0].plot(t_arr, A2_arr, label="A2")
+        axs[0].set_xlabel('t, [c]')
+        axs[0].set_ylabel('A, [В]')
+        axs[0].set_title("Амплитудный метод")
+        axs[0].set_xlim(0, t_arr[-1])
+        axs[0].set_ylim(mixAax, maxAax)
+        axs[0].xaxis.set_major_locator(ticker.AutoLocator())
+        axs[0].yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        axs[0].grid(True)
+        axs[0].legend(loc='upper right')
+        
         axs[1].plot(t_arr, phi_arr, label="φ")
         axs[1].plot(t_arr, phi_approxed, label="φ_аппрокс.")
-        
-        self.ampphase_canvas.figure.tight_layout()
-        
-        axs[0].legend()
-        axs[1].legend()
+        axs[1].set_xlabel('t, [c]')
+        axs[1].set_ylabel('φ, [град.]')
+        axs[1].set_title("Фазовый метод")
+        axs[1].set_xlim(0, t_arr[-1])
+        axs[1].set_ylim(-phi_abs_max*1.1, phi_abs_max*1.1)
+        axs[1].xaxis.set_major_locator(ticker.AutoLocator())
+        axs[1].yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        axs[1].grid(True)
+        axs[1].legend(loc='upper right')
         
         self.amp_canvas.draw()
         
@@ -239,12 +273,18 @@ class DirectionCalculator:
         self.phase_canvas.figure.clear()
         axs = self.phase_canvas.figure.subplots(1, 2)
         
-        axs[0].plot(t_arr, phase1_arr, label="Фаза1")
-        axs[0].plot(t_arr, phase2_arr, label="Фаза2")
-        axs[0].plot(t_arr, delta_phase_arr, label="Разность фаз")
-        axs[0].plot(t_arr, delta_phase_normed_arr, label="Нормированная разность фаз")
-        axs[0].plot(t_arr, delta_phase_approxed_arr, label="Аппрокс. норм. разность фаз")
-        axs[0].legend()
+        axs[0].plot(t_arr, np.rad2deg(phase1_arr), label="Фаза1")
+        axs[0].plot(t_arr, np.rad2deg(phase2_arr), label="Фаза2")
+        axs[0].plot(t_arr, np.rad2deg(delta_phase_normed_arr), label="Разность фаз")
+        axs[0].plot(t_arr, np.rad2deg(delta_phase_approxed_arr), label="Аппрокс. разность фаз")
+        
+        axs[0].set_xlabel('t, [с]')
+        axs[0].set_ylabel('φ, [град.]')
+        axs[0].set_title("Разность фаз")
+        axs[0].xaxis.set_major_locator(ticker.AutoLocator())
+        axs[0].yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        axs[0].grid(True)
+        axs[0].legend(loc='upper right')
         
         data = pd.read_csv(self.faz_path, sep='\\t', engine='python')
         data = data.apply(np.deg2rad)
@@ -259,7 +299,13 @@ class DirectionCalculator:
         axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_arr), label="Аппрокс. фаз. пел. хар-ка")
         axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_normed_arr), label="Норм. аппрокс. фаз. пел. хар-ка")
         axs[1].plot(deg_x_arr, np.rad2deg([delta_phase for _ in x_arr]), label="Разность фаз")
-        axs[1].legend()
+        axs[1].set_xlabel('Угол, [град.]')
+        axs[1].set_ylabel('φ, [град.]')
+        axs[1].set_title("Фазовая пел. хар-ка")
+        axs[1].xaxis.set_major_locator(ticker.AutoLocator())
+        axs[1].yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        axs[1].grid(True)
+        axs[1].legend(loc='upper right')
         
         self.phase_canvas.draw()
         
@@ -293,20 +339,11 @@ class DirectionCalculator:
         return inters
 
     def ampphase_method(self, angle_amp, angles_phase):
-        x_arr = np.linspace(self.phi_min, self.phi_max, 2)
+        x_arr = np.linspace(0, 10**-9, 2)
         i = 0
         
         self.ampphase_canvas.figure.clear()
         axs = self.ampphase_canvas.figure.subplots()
-
-        for inter in angles_phase:
-            axs.plot(x_arr, [inter for _ in x_arr], label="φ_фаз"+str(i))
-            i += 1
-            
-        axs.plot(x_arr, [angle_amp for _ in x_arr], label="φ_амп")
-        
-        axs.legend()
-        self.ampphase_canvas.draw()
         
         best = None
         best_diff = None
@@ -314,6 +351,28 @@ class DirectionCalculator:
             if best_diff is None or abs(phi - angle_amp) < best_diff:
                 best = phi
                 best_diff = abs(phi - angle_amp)
+
+        for inter in angles_phase:
+            width = 1
+            if inter == best:
+                width = 2
+            axs.plot(x_arr, [inter for _ in x_arr], label="φ_фаз"+str(i+1), color='blue', linewidth=width)
+            i += 1
+            
+        axs.plot(x_arr, [angle_amp for _ in x_arr], label="φ_амп", color='red')
+        
+        axs.set_xlabel('t, [с]')
+        axs.set_ylabel('φ, [град.]')
+        axs.set_title("Амплитудно-фазовый метод")
+        axs.xaxis.set_major_locator(ticker.AutoLocator())
+        axs.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        axs.grid(True)
+        axs.legend(loc='upper right')
+        
+        axs.legend()
+        self.ampphase_canvas.draw()
+        
+        
         return best
     
     def calculate(self):
@@ -324,4 +383,4 @@ class DirectionCalculator:
         return angle, accuracy
 
     def calculate_accuracy(self, phi):
-        return ((self.q ** 0.5) * (self.PDFR.get_normed_faz(self.phi_pel)) * math.cos(phi)) ** -1
+        return (abs((self.q ** 0.5) * (self.PDFR.get_normed_faz(self.phi_pel)) * math.cos(phi)) ** -1)
