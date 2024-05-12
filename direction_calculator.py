@@ -9,10 +9,7 @@ import my_math
 from scipy import interpolate
 import matplotlib.pyplot as plt
 
-
-C = 299792458
 pi = math.pi
-t_arr = np.linspace(0, 10**-9, 500)
 
 class Noise:
     def __init__(self, q, enable):
@@ -51,23 +48,17 @@ class ADFR:
         
         approxed_pel = [self.G_func(x) for x in x_arr_trunc]
         
-        canvas.figure.clear()
-        ax = canvas.figure.subplots()
-                
-        ax.plot(x_arr, y1_arr, label="ДНА 1-й антенны")
-        ax.plot(x_arr, y2_arr, label="ДНА 2-й антенны")
-        ax.plot(x_arr, np.array(pel_char), label="Амплитудная пел. хар-ка")
-        ax.plot(x_arr_trunc, np.array(approxed_pel), label="Аппроксимированная пел.хар-ка")
-        ax.set_xlabel('φ, [град.]')
-        ax.set_ylabel('A, [Вт]')
-        ax.set_title("Амплитудная пеленгационная хар-ка")
-        ax.xaxis.set_major_locator(ticker.AutoLocator())
-        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        ax.grid(True)
-        ax.legend(loc='upper right')
-        canvas.draw()
-
+        self.canvas_data = {}
+        self.canvas_data["x_arr"] = x_arr
+        self.canvas_data["y1_arr"] = y1_arr
+        self.canvas_data["y2_arr"] = y2_arr
+        self.canvas_data["pel_char"] = pel_char
+        self.canvas_data["x_arr_trunc"] = x_arr_trunc
+        self.canvas_data["approxed_pel"] = approxed_pel
         
+    def get_canvas_data(self):
+        return self.canvas_data
+
     def get_G(self, phi_pel_rad):
         return self.G_func(phi_pel_rad)
     
@@ -109,7 +100,7 @@ class PDFR:
 
 class E:
     def __init__(self, phi_pel_deg, K_n, phi_n_deg, q, noise_enable,
-                 omega_c, phi_0_deg, ADFR, PDFR, canvas, prefilter_en, prefilter_algo):
+                 omega_c, phi_0_deg, ADFR, PDFR, canvas, prefilter_en, prefilter_algo, t_arr):
         phi_n_rad = np.deg2rad(phi_n_deg)
         phi_0_rad = np.deg2rad(phi_0_deg)
         
@@ -122,6 +113,9 @@ class E:
 
         phi_pel_rad = np.deg2rad(phi_pel_deg)
         faz = PDFR.get_normed_faz(phi_pel_rad)
+        
+        fs = 1 / t_arr[1] * 1.2
+        cutoff_freq = omega_c / (2 * pi)
         
         E1, E11, E2, E22 = [], [], [], []
         for t in t_arr:
@@ -136,58 +130,57 @@ class E:
             E22.append(K_n * U2 * (np.sin(omega_c * t + phi_0_rad + phi_n_rad + faz) + N22))
 
         if prefilter_en:
-            self.E1_func = my_math.get_filtered_func(t_arr, E1, prefilter_algo)
-            self.E11_func = my_math.get_filtered_func(t_arr, E11, prefilter_algo)
-            self.E2_func = my_math.get_filtered_func(t_arr, E2, prefilter_algo)
-            self.E22_func = my_math.get_filtered_func(t_arr, E22, prefilter_algo)
+            self.E1_func = my_math.get_filtered_func(t_arr, E1, prefilter_algo, fs, cutoff_freq)
+            self.E11_func = my_math.get_filtered_func(t_arr, E11, prefilter_algo, fs, cutoff_freq)
+            self.E2_func = my_math.get_filtered_func(t_arr, E2, prefilter_algo, fs, cutoff_freq)
+            self.E22_func = my_math.get_filtered_func(t_arr, E22, prefilter_algo, fs, cutoff_freq)
         else: 
             self.E1_func = interpolate.interp1d(t_arr, E1, kind='cubic')
             self.E11_func = interpolate.interp1d(t_arr, E11, kind='cubic')
             self.E2_func = interpolate.interp1d(t_arr, E2, kind='cubic')
             self.E22_func = interpolate.interp1d(t_arr, E22, kind='cubic')
 
-        canvas.figure.clear()
-        ax = canvas.figure.subplots()
-        
-        ax.plot(t_arr, self.E1_func(t_arr), label="E1")
-        ax.plot(t_arr, self.E11_func(t_arr), label="E11")
-        ax.plot(t_arr, self.E2_func(t_arr), label="E2")
-        ax.plot(t_arr, self.E22_func(t_arr), label="E22")
-        ax.set_xlabel('t, [с]')
-        ax.set_ylabel('E, [В]')
-        ax.set_title("Квадратуры на входе приемника")
-        ax.xaxis.set_major_locator(ticker.AutoLocator())
-        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        ax.grid(True)
-        ax.legend(loc='upper right')
-        
-        canvas.draw()
+        self.canvas_data = {}
+        self.canvas_data["t_arr"] = t_arr
+        self.canvas_data["E1_func"] = self.E1_func
+        self.canvas_data["E11_func"] = self.E11_func
+        self.canvas_data["E2_func"] = self.E2_func
+        self.canvas_data["E22_func"] = self.E22_func
 
-         
+    def get_canvas_data(self):
+        return self.canvas_data
+
     def get_E(self, t):
         return self.E1_func(t), self.E11_func(t), self.E2_func(t), self.E22_func(t)
 
 
 class DirectionCalculator:
     def __init__(self, q, phi_0_deg, phi_min_deg, phi_max_deg,
-                 lambda_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num, 
+                 f_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num, 
                  phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, adfr_canvas,
-                   amp_canvas, e_canvas, phase_canvas, ampphase_canvas, prefilter_en, prefilter_algo):
+                   amp_canvas, e_canvas, phase_canvas, ampphase_canvas, prefilter_en, prefilter_algo, t, f_discr):
         self.phi_min, self.phi_max = (np.deg2rad(phi_min_deg),
                                       np.deg2rad(phi_max_deg))  # диапазон углов
-        self.q = q  # сигнал/шум
+        if noise_enable:
+            self.q = q  # сигнал/шум
+        else:
+            self.q = float('inf')
         self.freq_num = freq_num
         self.ADFR = ADFR(sll1_path, sll2_path, freq_num + 1, phi_min_deg, phi_max_deg, approx_mode, poly_degree, adfr_canvas)  # Пеленгационная характеристика
         self.PDFR = PDFR(faz_path, freq_num + 1, approx_mode, poly_degree)  # Фазовая характеристика
         self.faz_path = faz_path
         self.phi_pel = np.deg2rad(phi_pel_deg)
-        self.lambda_c = lambda_c
-        self.omega_c = 2 * pi * C / lambda_c
-        self.E = E(phi_pel_deg, K_n, phi_n_deg, q, noise_enable, self.omega_c, phi_0_deg, self.ADFR,
-                   self.PDFR, e_canvas, prefilter_en, prefilter_algo)
+        self.t_arr = np.arange(0, t, 1.0 / f_discr)
+        omega_c = 2 * pi * f_c
+        self.E = E(phi_pel_deg, K_n, phi_n_deg, q, noise_enable, omega_c, phi_0_deg, self.ADFR,
+                   self.PDFR, e_canvas, prefilter_en, prefilter_algo, self.t_arr)
         self.amp_canvas = amp_canvas
         self.phase_canvas = phase_canvas
         self.ampphase_canvas = ampphase_canvas
+        
+        self.phase_canvas_data = {}
+        self.amp_canvas_data = {}
+        self.ampphase_canvas_data = {}
         
 
     def get_amplitude(self, Ex, Exx):
@@ -199,7 +192,7 @@ class DirectionCalculator:
     def amplitude_method(self):
         A1_arr, A2_arr = [], []
         phi_arr = []
-        for t in t_arr:
+        for t in self.t_arr:
             E1, E11, E2, E22 = self.E.get_E(t)
             A1 = self.get_amplitude(E1, E11)
             A2 = self.get_amplitude(E2, E22)
@@ -208,50 +201,26 @@ class DirectionCalculator:
             phi = self.ADFR.get_phi(20*math.log10((A1)/(A2)))
             phi_arr.append(phi)
                 
-        phi_func = my_math.get_approx_func(t_arr, phi_arr, my_math.ApproxMode.POLY, 0)
-        phi_approxed = [phi_func(t) for t in t_arr]
-        phi_abs_max = max(abs(phi) for phi in phi_arr)
+        phi_func = my_math.get_approx_func(self.t_arr, phi_arr, my_math.ApproxMode.POLY, 0)
+        phi_approxed = [phi_func(t) for t in self.t_arr]
         
-        self.amp_canvas.figure.clear()
-        axs = self.amp_canvas.figure.subplots(1, 2)
-        
-        minA1, maxA1 = min(A1_arr), max(A1_arr)
-        minA2, maxA2 = min(A2_arr), max(A2_arr)
-        mixAax = min(minA1, minA2, 0)
-        maxAax = max(maxA1, maxA2, 0)
+        self.amp_canvas_data["t_arr"] = self.t_arr
+        self.amp_canvas_data["A1_arr"] = A1_arr
+        self.amp_canvas_data["A2_arr"] = A2_arr
+        self.amp_canvas_data["phi_approxed"] = phi_approxed
+        self.amp_canvas_data["phi_arr"] = phi_arr
+
+        return phi_func(self.t_arr[0])
     
-        axs[0].plot(t_arr, A1_arr, label="A1")
-        axs[0].plot(t_arr, A2_arr, label="A2")
-        axs[0].set_xlabel('t, [c]')
-        axs[0].set_ylabel('A, [В]')
-        axs[0].set_title("Амплитудный метод")
-        axs[0].set_xlim(0, t_arr[-1])
-        axs[0].set_ylim(mixAax, maxAax)
-        axs[0].xaxis.set_major_locator(ticker.AutoLocator())
-        axs[0].yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        axs[0].grid(True)
-        axs[0].legend(loc='upper right')
         
-        axs[1].plot(t_arr, phi_arr, label="φ")
-        axs[1].plot(t_arr, phi_approxed, label="φ_аппрокс.")
-        axs[1].set_xlabel('t, [c]')
-        axs[1].set_ylabel('φ, [град.]')
-        axs[1].set_title("Фазовый метод")
-        axs[1].set_xlim(0, t_arr[-1])
-        axs[1].set_ylim(-phi_abs_max*1.1, phi_abs_max*1.1)
-        axs[1].xaxis.set_major_locator(ticker.AutoLocator())
-        axs[1].yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        axs[1].grid(True)
-        axs[1].legend(loc='upper right')
-        
-        self.amp_canvas.draw()
-        
-        return phi_func(t_arr[0])
+    def get_amp_canvas_data(self):
+        return self.amp_canvas_data
+    
 
     def phase_method(self):
         phase1_arr, phase2_arr = [], []
         delta_phase_arr = []
-        for t in t_arr:
+        for t in self.t_arr:
             E1, E11, E2, E22 = self.E.get_E(t)
             phase1 = self.get_phase(E1, E11)
             phase2 = self.get_phase(E2, E22)
@@ -266,25 +235,9 @@ class DirectionCalculator:
             if delta_phase < -pi:
                 delta_phase = 2 * pi + delta_phase
             delta_phase_normed_arr.append(delta_phase)
-        delta_phase_approxed_func = my_math.get_approx_func(t_arr, delta_phase_normed_arr, my_math.ApproxMode.POLY, 0)
-        delta_phase_approxed_arr = [delta_phase_approxed_func(t) for t in t_arr]
+        delta_phase_approxed_func = my_math.get_approx_func(self.t_arr, delta_phase_normed_arr, my_math.ApproxMode.POLY, 0)
+        delta_phase_approxed_arr = [delta_phase_approxed_func(t) for t in self.t_arr]
         delta_phase = delta_phase_approxed_arr[0]
-        
-        self.phase_canvas.figure.clear()
-        axs = self.phase_canvas.figure.subplots(1, 2)
-        
-        axs[0].plot(t_arr, np.rad2deg(phase1_arr), label="Фаза1")
-        axs[0].plot(t_arr, np.rad2deg(phase2_arr), label="Фаза2")
-        axs[0].plot(t_arr, np.rad2deg(delta_phase_normed_arr), label="Разность фаз")
-        axs[0].plot(t_arr, np.rad2deg(delta_phase_approxed_arr), label="Аппрокс. разность фаз")
-        
-        axs[0].set_xlabel('t, [с]')
-        axs[0].set_ylabel('φ, [град.]')
-        axs[0].set_title("Разность фаз")
-        axs[0].xaxis.set_major_locator(ticker.AutoLocator())
-        axs[0].yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        axs[0].grid(True)
-        axs[0].legend(loc='upper right')
         
         data = pd.read_csv(self.faz_path, sep='\\t', engine='python')
         data = data.apply(np.deg2rad)
@@ -295,27 +248,30 @@ class DirectionCalculator:
         faz_approxed_normed_arr = [self.PDFR.get_normed_faz(x) for x in x_arr]
         deg_x_arr = np.rad2deg(x_arr)
         
-        axs[1].plot(deg_x_arr, np.rad2deg(faz_arr), label="Фазовая пел. хар-ка")
-        axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_arr), label="Аппрокс. фаз. пел. хар-ка")
-        axs[1].plot(deg_x_arr, np.rad2deg(faz_approxed_normed_arr), label="Норм. аппрокс. фаз. пел. хар-ка")
-        axs[1].plot(deg_x_arr, np.rad2deg([delta_phase for _ in x_arr]), label="Разность фаз")
-        axs[1].set_xlabel('Угол, [град.]')
-        axs[1].set_ylabel('φ, [град.]')
-        axs[1].set_title("Фазовая пел. хар-ка")
-        axs[1].xaxis.set_major_locator(ticker.AutoLocator())
-        axs[1].yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        axs[1].grid(True)
-        axs[1].legend(loc='upper right')
-        
         self.phase_canvas.draw()
         
         dphi_min = self.PDFR.get_faz(self.phi_max)
         dphi_max = self.PDFR.get_faz(self.phi_min)
         inters = self.find_phase_intersections(delta_phase, dphi_min, dphi_max)
-        i = 0
+        
         deg_inters = np.rad2deg(inters)
-                        
+
+        self.phase_canvas_data["t_arr"] = self.t_arr
+        self.phase_canvas_data["phase1_arr"] = phase1_arr
+        self.phase_canvas_data["phase2_arr"] = phase2_arr
+        self.phase_canvas_data["delta_phase_normed_arr"] = delta_phase_normed_arr
+        self.phase_canvas_data["delta_phase_approxed_arr"] = delta_phase_approxed_arr
+        self.phase_canvas_data["deg_x_arr"] = deg_x_arr
+        self.phase_canvas_data["faz_arr"] = faz_arr
+        self.phase_canvas_data["faz_approxed_arr"] = faz_approxed_arr
+        self.phase_canvas_data["faz_approxed_normed_arr"] = faz_approxed_normed_arr
+        self.phase_canvas_data["delta_phase"] = delta_phase
+             
         return deg_inters
+    
+    def get_phase_canvas_data(self):
+        return self.phase_canvas_data
+        
 
     def find_phase_intersections(self, delta_phi, dphi_min, dphi_max):
         f = interpolate.interp1d(self.PDFR.get_faz(np.linspace(self.phi_min, self.phi_max, 100000)), np.linspace(self.phi_min, self.phi_max, 100000))
@@ -339,11 +295,7 @@ class DirectionCalculator:
         return inters
 
     def ampphase_method(self, angle_amp, angles_phase):
-        x_arr = np.linspace(0, 10**-9, 2)
-        i = 0
-        
-        self.ampphase_canvas.figure.clear()
-        axs = self.ampphase_canvas.figure.subplots()
+        x_arr = np.linspace(0, self.t_arr[-1], 2)
         
         best = None
         best_diff = None
@@ -352,28 +304,15 @@ class DirectionCalculator:
                 best = phi
                 best_diff = abs(phi - angle_amp)
 
-        for inter in angles_phase:
-            width = 1
-            if inter == best:
-                width = 2
-            axs.plot(x_arr, [inter for _ in x_arr], label="φ_фаз"+str(i+1), color='blue', linewidth=width)
-            i += 1
-            
-        axs.plot(x_arr, [angle_amp for _ in x_arr], label="φ_амп", color='red')
-        
-        axs.set_xlabel('t, [с]')
-        axs.set_ylabel('φ, [град.]')
-        axs.set_title("Амплитудно-фазовый метод")
-        axs.xaxis.set_major_locator(ticker.AutoLocator())
-        axs.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-        axs.grid(True)
-        axs.legend(loc='upper right')
-        
-        axs.legend()
-        self.ampphase_canvas.draw()
-        
+        self.ampphase_canvas_data["angles_phase"] = angles_phase
+        self.ampphase_canvas_data["best"] = best
+        self.ampphase_canvas_data["x_arr"] = x_arr
+        self.ampphase_canvas_data["angle_amp"] = angle_amp
         
         return best
+    
+    def get_ampphase_canvas_data(self):
+        return self.ampphase_canvas_data
     
     def calculate(self):
         angle_amp = self.amplitude_method()

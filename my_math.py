@@ -4,7 +4,7 @@ from scipy.optimize import curve_fit
 from scipy import interpolate
 import math
 
-from scipy.signal import butter, filtfilt, savgol_filter
+from scipy.signal import butter, lfilter, savgol_filter
 
 pi = math.pi
 
@@ -58,16 +58,20 @@ def get_approx_func(x_arr, y_arr, mode, poly_degree=10):
         return np.polynomial.laguerre.Laguerre.fit(x_arr, y_arr, poly_degree)
     
     
-def get_filtered_func(x_arr, y_arr, algo):   
+def get_filtered_func(x_arr, y_arr, algo, fs, cutoff_freq):   
     if algo == FilterAlgo.BUTTER:  # Баттеруорта
-        normal_cutoff = 0.3
-        b, a = butter(10, normal_cutoff, btype="low", analog=False)
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff_freq / nyq
+        order = 5
+        b, a = butter(order, normal_cutoff, btype="low", analog=False)
 
-        y_new = filtfilt(b, a, y_arr)
+        y_new = lfilter(b, a, y_arr)
         return interpolate.interp1d(x_arr, y_new)
 
     if algo == FilterAlgo.SAVGOL:  # Савитского-Голея
-        y_new = savgol_filter(y_arr, 30, 10)
+        window = int(cutoff_freq/fs)+2
+        polyorder = window // 2
+        y_new = savgol_filter(y_arr, window, polyorder)
         return interpolate.interp1d(x_arr, y_new)
     
 def rad2deg_arr(arr):
