@@ -8,6 +8,8 @@ from matplotlib.figure import Figure
 from my_math import ApproxMode, FilterAlgo
 from matplotlib import ticker
 import numpy as np
+import time
+import traceback
 
 class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow): 
     def __init__(self, parent=None):
@@ -247,9 +249,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         sll2_path = self.sll2_lineEdit.text()
         faz_path = self.faz_lineEdit.text()
         approx_mode = ApproxMode(self.approx_mode_combo_box.currentIndex())
-        poly_degree = 0
-        if approx_mode == ApproxMode.POLY:
-            poly_degree = self.poly_degree_spinBox.value()
+        poly_degree = self.poly_degree_spinBox.value()
         phi_pel = self.phi_pel_spinBox.value()
         K_n = self.k_n_spinBox.value()
         freq_num = self.freq_num_spinBox.value()
@@ -261,26 +261,47 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         t = self.t_spinBox.value()*(10**-9)
         f_discr = self.f_discr_spinBox.value()*10**9
         
+        sims_num = self.sims_num_spinBox.value()
+        
         try:
-            calc = DirectionCalculator(q, phi_0, phi_min, phi_max, f_c, sll1_path, sll2_path, faz_path, approx_mode,
-                                   freq_num, phi_pel, K_n, phi_n, noise_enable, poly_degree, self.adfr_canvas, self.amp_canvas,
-                                   self.e_canvas, self.phase_canvas, self.ampphase_canvas, prefilter_en, prefilter_algo, t, f_discr)
-            angle, accuracy = calc.calculate()
+            times_arr = []
+            divs_arr = []
+
+            calc = None
+            angle, accuracy = None, None
+
+            for _ in range(sims_num):
+                calc = DirectionCalculator(q, phi_0, phi_min, phi_max, f_c, sll1_path, sll2_path, faz_path, approx_mode,
+                                    freq_num, phi_pel, K_n, phi_n, noise_enable, poly_degree, prefilter_en, prefilter_algo, t, f_discr)
+                
+                angle, accuracy = calc.calculate()
+                approx_time = calc.ADFR.approx_time + calc.PDFR.approx_time + calc.E.filter_time
+                times_arr.append(approx_time)
+                
+                div_v = abs(phi_pel - angle)
+                divs_arr.append(div_v)
+                print("Среднее время вычисления: {} мс".format(approx_time * 1000))
+            
+                
             self.res_label.setText('{:.3f}°'.format(angle))
             self.accuracy_label.setText('±{:.3f}°'.format(accuracy))
+            self.avg_time_label.setText('{:.3f} мс'.format(sum(times_arr) / len(times_arr) * 1000))
+            self.avg_div_label.setText('{:.3f}°'.format(sum(divs_arr) / len(divs_arr)))
             
             self.draw_ADFR(calc.ADFR.get_canvas_data())
             self.draw_E(calc.E.get_canvas_data())
             self.draw_AMP(calc.get_amp_canvas_data())
             self.draw_PHASE(calc.get_phase_canvas_data())
             self.draw_AMPPHASE(calc.get_ampphase_canvas_data())
-            
-        except FileNotFoundError as e:
+                
+        except Exception as e:
             error_dialog = QtWidgets.QMessageBox()
             error_dialog.setWindowTitle("Ошибка")
             error_dialog.setText(f"Произошла ошибка: {e}")
             error_dialog.setIcon(QtWidgets.QMessageBox.Icon.Critical)
             error_dialog.exec()
+            traceback.print_exc()
+            
                       
 if __name__ == "__main__":
     import sys

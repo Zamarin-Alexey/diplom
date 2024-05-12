@@ -7,7 +7,7 @@ import pandas as pd
 import my_math
 
 from scipy import interpolate
-import matplotlib.pyplot as plt
+import time
 
 pi = math.pi
 
@@ -24,7 +24,7 @@ class Noise:
 
 
 class ADFR:
-    def __init__(self, sll1_path, sll2_path, col, phi_min_deg, phi_max_deg, approx_mode, poly_degree, canvas):
+    def __init__(self, sll1_path, sll2_path, col, phi_min_deg, phi_max_deg, approx_mode, poly_degree):
         sll1_data = pd.read_csv(sll1_path, sep="\\t", engine="python")
         
         x_arr = sll1_data['X'].values
@@ -39,14 +39,17 @@ class ADFR:
         
         x_arr_trunc = x_arr[indices[0][0]: indices[0][-1] + 1]
         pel_char_trunc = pel_char[indices[0][0]: indices[0][-1] + 1]
+        start = time.time()
         self.G_func = my_math.get_approx_func(x_arr_trunc, pel_char_trunc, approx_mode, poly_degree)
-        
         self.G1 = my_math.get_approx_func(x_arr_trunc, y1_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
         self.G2 = my_math.get_approx_func(x_arr_trunc, y2_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
+        end = time.time()
         
         self.reversed_G_func = interpolate.interp1d(self.G_func(x_arr_trunc), x_arr_trunc, fill_value="extrapolate")
         
         approxed_pel = [self.G_func(x) for x in x_arr_trunc]
+        
+        self.approx_time = end - start
         
         self.canvas_data = {}
         self.canvas_data["x_arr"] = x_arr
@@ -89,7 +92,10 @@ class PDFR:
 
         shifted_faz = np.unwrap(faz_arr)
         shifted_faz_with_offset = [shifted + offset*2*pi for shifted in shifted_faz]
+        start = time.time()
         self.faz_approx_func = my_math.get_approx_func(x_arr, shifted_faz_with_offset, approx_mode, poly_degree)
+        end = time.time()
+        self.approx_time = end - start
     
     def get_faz(self, x):
         return self.faz_approx_func(x)
@@ -100,7 +106,7 @@ class PDFR:
 
 class E:
     def __init__(self, phi_pel_deg, K_n, phi_n_deg, q, noise_enable,
-                 omega_c, phi_0_deg, ADFR, PDFR, canvas, prefilter_en, prefilter_algo, t_arr):
+                 omega_c, phi_0_deg, ADFR, PDFR, prefilter_en, prefilter_algo, t_arr):
         phi_n_rad = np.deg2rad(phi_n_deg)
         phi_0_rad = np.deg2rad(phi_0_deg)
         
@@ -130,15 +136,21 @@ class E:
             E22.append(K_n * U2 * (np.sin(omega_c * t + phi_0_rad + phi_n_rad + faz) + N22))
 
         if prefilter_en:
+            start = time.time()
             self.E1_func = my_math.get_filtered_func(t_arr, E1, prefilter_algo, fs, cutoff_freq)
             self.E11_func = my_math.get_filtered_func(t_arr, E11, prefilter_algo, fs, cutoff_freq)
             self.E2_func = my_math.get_filtered_func(t_arr, E2, prefilter_algo, fs, cutoff_freq)
             self.E22_func = my_math.get_filtered_func(t_arr, E22, prefilter_algo, fs, cutoff_freq)
+            end = time.time()
+            self.filter_time = end - start
         else: 
+            start = time.time()
             self.E1_func = interpolate.interp1d(t_arr, E1, kind='cubic')
             self.E11_func = interpolate.interp1d(t_arr, E11, kind='cubic')
             self.E2_func = interpolate.interp1d(t_arr, E2, kind='cubic')
             self.E22_func = interpolate.interp1d(t_arr, E22, kind='cubic')
+            end = time.time()
+            self.filter_time = end - start
 
         self.canvas_data = {}
         self.canvas_data["t_arr"] = t_arr
@@ -157,8 +169,7 @@ class E:
 class DirectionCalculator:
     def __init__(self, q, phi_0_deg, phi_min_deg, phi_max_deg,
                  f_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num, 
-                 phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, adfr_canvas,
-                   amp_canvas, e_canvas, phase_canvas, ampphase_canvas, prefilter_en, prefilter_algo, t, f_discr):
+                 phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, prefilter_en, prefilter_algo, t, f_discr):
         self.phi_min, self.phi_max = (np.deg2rad(phi_min_deg),
                                       np.deg2rad(phi_max_deg))  # диапазон углов
         if noise_enable:
@@ -166,17 +177,14 @@ class DirectionCalculator:
         else:
             self.q = float('inf')
         self.freq_num = freq_num
-        self.ADFR = ADFR(sll1_path, sll2_path, freq_num + 1, phi_min_deg, phi_max_deg, approx_mode, poly_degree, adfr_canvas)  # Пеленгационная характеристика
+        self.ADFR = ADFR(sll1_path, sll2_path, freq_num + 1, phi_min_deg, phi_max_deg, approx_mode, poly_degree)  # Пеленгационная характеристика
         self.PDFR = PDFR(faz_path, freq_num + 1, approx_mode, poly_degree)  # Фазовая характеристика
         self.faz_path = faz_path
         self.phi_pel = np.deg2rad(phi_pel_deg)
         self.t_arr = np.arange(0, t, 1.0 / f_discr)
         omega_c = 2 * pi * f_c
         self.E = E(phi_pel_deg, K_n, phi_n_deg, q, noise_enable, omega_c, phi_0_deg, self.ADFR,
-                   self.PDFR, e_canvas, prefilter_en, prefilter_algo, self.t_arr)
-        self.amp_canvas = amp_canvas
-        self.phase_canvas = phase_canvas
-        self.ampphase_canvas = ampphase_canvas
+                   self.PDFR, prefilter_en, prefilter_algo, self.t_arr)
         
         self.phase_canvas_data = {}
         self.amp_canvas_data = {}
@@ -201,8 +209,8 @@ class DirectionCalculator:
             phi = self.ADFR.get_phi(20*math.log10((A1)/(A2)))
             phi_arr.append(phi)
                 
-        phi_func = my_math.get_approx_func(self.t_arr, phi_arr, my_math.ApproxMode.POLY, 0)
-        phi_approxed = [phi_func(t) for t in self.t_arr]
+        phi = np.average(phi_arr)
+        phi_approxed = [phi for t in self.t_arr]
         
         self.amp_canvas_data["t_arr"] = self.t_arr
         self.amp_canvas_data["A1_arr"] = A1_arr
@@ -210,7 +218,7 @@ class DirectionCalculator:
         self.amp_canvas_data["phi_approxed"] = phi_approxed
         self.amp_canvas_data["phi_arr"] = phi_arr
 
-        return phi_func(self.t_arr[0])
+        return phi
     
         
     def get_amp_canvas_data(self):
@@ -235,8 +243,8 @@ class DirectionCalculator:
             if delta_phase < -pi:
                 delta_phase = 2 * pi + delta_phase
             delta_phase_normed_arr.append(delta_phase)
-        delta_phase_approxed_func = my_math.get_approx_func(self.t_arr, delta_phase_normed_arr, my_math.ApproxMode.POLY, 0)
-        delta_phase_approxed_arr = [delta_phase_approxed_func(t) for t in self.t_arr]
+        delta_phase = np.average(delta_phase_normed_arr)
+        delta_phase_approxed_arr = [delta_phase for _ in self.t_arr]
         delta_phase = delta_phase_approxed_arr[0]
         
         data = pd.read_csv(self.faz_path, sep='\\t', engine='python')
@@ -247,8 +255,6 @@ class DirectionCalculator:
         faz_approxed_arr = [self.PDFR.get_faz(x) for x in x_arr]
         faz_approxed_normed_arr = [self.PDFR.get_normed_faz(x) for x in x_arr]
         deg_x_arr = np.rad2deg(x_arr)
-        
-        self.phase_canvas.draw()
         
         dphi_min = self.PDFR.get_faz(self.phi_max)
         dphi_max = self.PDFR.get_faz(self.phi_min)
@@ -274,7 +280,7 @@ class DirectionCalculator:
         
 
     def find_phase_intersections(self, delta_phi, dphi_min, dphi_max):
-        f = interpolate.interp1d(self.PDFR.get_faz(np.linspace(self.phi_min, self.phi_max, 100000)), np.linspace(self.phi_min, self.phi_max, 100000))
+        f = interpolate.interp1d(self.PDFR.get_faz(np.linspace(self.phi_min, self.phi_max, 1000)), np.linspace(self.phi_min, self.phi_max, 1000), fill_value="extrapolate")
         inters = [f(delta_phi)]
 
         n = 1

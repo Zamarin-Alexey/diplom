@@ -73,9 +73,4 @@ def get_filtered_func(x_arr, y_arr, algo, fs, cutoff_freq):
         polyorder = window // 2
         y_new = savgol_filter(y_arr, window, polyorder)
         return interpolate.interp1d(x_arr, y_new)
-    
-def rad2deg_arr(arr):
-    new_arr = []
-    for el in arr:
-        new_arr.append(np.rad2deg(el))
-    return new_arr           
+       
