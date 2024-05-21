@@ -1,6 +1,5 @@
 import math
 
-from matplotlib import ticker
 import numpy as np
 import pandas as pd
 
@@ -14,13 +13,13 @@ pi = math.pi
 class Noise:
     def __init__(self, q, enable):
         if enable:
-            self.A = 1/math.sqrt(my_math.db_to_times(q))
+            self._A = 1/math.sqrt(my_math.db_to_times(q))
         else:
-            self.A = 0
+            self._A = 0
         self.rng = np.random.default_rng()
 
     def get_noise(self):
-        return self.A * (-1 + 2*self.rng.random())
+        return self._A * (-1 + 2*self.rng.random())
 
 
 class ADFR:
@@ -40,39 +39,42 @@ class ADFR:
         x_arr_trunc = x_arr[indices[0][0]: indices[0][-1] + 1]
         pel_char_trunc = pel_char[indices[0][0]: indices[0][-1] + 1]
         start = time.time()
-        self.G_func = my_math.get_approx_func(x_arr_trunc, pel_char_trunc, approx_mode, poly_degree)
-        self.G1 = my_math.get_approx_func(x_arr_trunc, y1_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
-        self.G2 = my_math.get_approx_func(x_arr_trunc, y2_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
+        self._G = my_math.get_approx_func(x_arr_trunc, pel_char_trunc, approx_mode, poly_degree)
+        self._SLL1 = my_math.get_approx_func(x_arr_trunc, y1_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
+        self._SLL2 = my_math.get_approx_func(x_arr_trunc, y2_arr[indices[0][0]: indices[0][-1] + 1], approx_mode, poly_degree)
         end = time.time()
         
-        self.reversed_G_func = interpolate.interp1d(self.G_func(x_arr_trunc), x_arr_trunc, fill_value="extrapolate")
+        self._reversed_G_func = interpolate.interp1d(self._G(x_arr_trunc), x_arr_trunc, fill_value="extrapolate")
         
-        approxed_pel = [self.G_func(x) for x in x_arr_trunc]
+        approxed_pel = [self._G(x) for x in x_arr_trunc]
         
-        self.approx_time = end - start
+        self._approx_time = end - start
         
-        self.canvas_data = {}
-        self.canvas_data["x_arr"] = x_arr
-        self.canvas_data["y1_arr"] = y1_arr
-        self.canvas_data["y2_arr"] = y2_arr
-        self.canvas_data["pel_char"] = pel_char
-        self.canvas_data["x_arr_trunc"] = x_arr_trunc
-        self.canvas_data["approxed_pel"] = approxed_pel
+        self._canvas_data = {}
+        self._canvas_data["x_arr"] = x_arr
+        self._canvas_data["y1_arr"] = y1_arr
+        self._canvas_data["y2_arr"] = y2_arr
+        self._canvas_data["pel_char"] = pel_char
+        self._canvas_data["x_arr_trunc"] = x_arr_trunc
+        self._canvas_data["approxed_pel"] = approxed_pel
         
     def get_canvas_data(self):
-        return self.canvas_data
+        return self._canvas_data
 
     def get_G(self, phi_pel_rad):
-        return self.G_func(phi_pel_rad)
+        return self._G(phi_pel_rad)
     
-    def get_G1(self, phi_pel_rad):
-        return self.G1(phi_pel_rad)
+    def get_SLL1(self, phi_pel_rad):
+        return self._SLL1(phi_pel_rad)
     
-    def get_G2(self, phi_pel_rad):
-        return self.G2(phi_pel_rad)
+    def get_SLL2(self, phi_pel_rad):
+        return self._SLL2(phi_pel_rad)
     
-    def get_phi(self, G):
-        return self.reversed_G_func(G)
+    def get_angle(self, G):
+        return self._reversed_G_func(G)
+    
+    def get_approx_time(self):
+        return self._approx_time
     
 class PDFR:
     def __init__(self, faz_path, col, approx_mode, poly_degree=10):
@@ -93,15 +95,19 @@ class PDFR:
         shifted_faz = np.unwrap(faz_arr)
         shifted_faz_with_offset = [shifted + offset*2*pi for shifted in shifted_faz]
         start = time.time()
-        self.faz_approx_func = my_math.get_approx_func(x_arr, shifted_faz_with_offset, approx_mode, poly_degree)
+        self._faz_approx_func = my_math.get_approx_func(x_arr, shifted_faz_with_offset, approx_mode, poly_degree)
         end = time.time()
-        self.approx_time = end - start
+        self._approx_time = end - start
     
     def get_faz(self, x):
-        return self.faz_approx_func(x)
+        return self._faz_approx_func(x)
     
     def get_normed_faz(self, x):
-        return (self.faz_approx_func(x) - pi) % (-2 * pi) + pi
+        return (self._faz_approx_func(x) - pi) % (-2 * pi) + pi
+    
+    def get_approx_time(self):
+        return self._approx_time
+    
     
 
 class E:
@@ -110,8 +116,8 @@ class E:
         phi_n_rad = np.deg2rad(phi_n_deg)
         phi_0_rad = np.deg2rad(phi_0_deg)
         
-        B1 = ADFR.get_G1(phi_pel_deg)
-        B2 = ADFR.get_G2(phi_pel_deg)
+        B1 = ADFR.get_SLL1(phi_pel_deg)
+        B2 = ADFR.get_SLL2(phi_pel_deg)
         U1 = 10 ** (B1/20)
         U2 = 10 ** (B2/20)
         
@@ -134,153 +140,141 @@ class E:
             E11.append(U1 * (np.sin(omega_c * t + phi_0_rad) + N11))
             E2.append(K_n * U2 * (np.cos(omega_c * t + phi_0_rad + phi_n_rad + faz) + N2))
             E22.append(K_n * U2 * (np.sin(omega_c * t + phi_0_rad + phi_n_rad + faz) + N22))
-
+            
+        start = time.time()
         if prefilter_en:
-            start = time.time()
-            self.E1_func = my_math.get_filtered_func(t_arr, E1, prefilter_algo, fs, cutoff_freq)
-            self.E11_func = my_math.get_filtered_func(t_arr, E11, prefilter_algo, fs, cutoff_freq)
-            self.E2_func = my_math.get_filtered_func(t_arr, E2, prefilter_algo, fs, cutoff_freq)
-            self.E22_func = my_math.get_filtered_func(t_arr, E22, prefilter_algo, fs, cutoff_freq)
-            end = time.time()
-            self.filter_time = end - start
+            self._E1_func = my_math.get_filt_func(t_arr, E1, prefilter_algo, fs, cutoff_freq)
+            self._E11_func = my_math.get_filt_func(t_arr, E11, prefilter_algo, fs, cutoff_freq)
+            self._E2_func = my_math.get_filt_func(t_arr, E2, prefilter_algo, fs, cutoff_freq)
+            self._E22_func = my_math.get_filt_func(t_arr, E22, prefilter_algo, fs, cutoff_freq)
         else: 
-            start = time.time()
-            self.E1_func = interpolate.interp1d(t_arr, E1, kind='cubic')
-            self.E11_func = interpolate.interp1d(t_arr, E11, kind='cubic')
-            self.E2_func = interpolate.interp1d(t_arr, E2, kind='cubic')
-            self.E22_func = interpolate.interp1d(t_arr, E22, kind='cubic')
-            end = time.time()
-            self.filter_time = end - start
-
-        self.canvas_data = {}
-        self.canvas_data["t_arr"] = t_arr
-        self.canvas_data["E1_func"] = self.E1_func
-        self.canvas_data["E11_func"] = self.E11_func
-        self.canvas_data["E2_func"] = self.E2_func
-        self.canvas_data["E22_func"] = self.E22_func
+            self._E1_func = interpolate.interp1d(t_arr, E1, kind='cubic')
+            self._E11_func = interpolate.interp1d(t_arr, E11, kind='cubic')
+            self._E2_func = interpolate.interp1d(t_arr, E2, kind='cubic')
+            self._E22_func = interpolate.interp1d(t_arr, E22, kind='cubic')
+            
+        end = time.time()
+        self.filter_time = end - start
+        self._canvas_data = {}
+        self._canvas_data["t_arr"] = t_arr
+        self._canvas_data["E1_func"] = self._E1_func
+        self._canvas_data["E11_func"] = self._E11_func
+        self._canvas_data["E2_func"] = self._E2_func
+        self._canvas_data["E22_func"] = self._E22_func
 
     def get_canvas_data(self):
-        return self.canvas_data
+        return self._canvas_data
 
     def get_E(self, t):
-        return self.E1_func(t), self.E11_func(t), self.E2_func(t), self.E22_func(t)
+        return self._E1_func(t), self._E11_func(t), self._E2_func(t), self._E22_func(t)
+    
+    def get_approx_time(self):
+        return self.filter_time
 
 
 class DirectionCalculator:
     def __init__(self, q, phi_0_deg, phi_min_deg, phi_max_deg,
                  f_c, sll1_path, sll2_path, faz_path, approx_mode, freq_num, 
                  phi_pel_deg, K_n, phi_n_deg, noise_enable, poly_degree, prefilter_en, prefilter_algo, t, f_discr):
-        self.phi_min, self.phi_max = (np.deg2rad(phi_min_deg),
+        self._phi_min, self._phi_max = (np.deg2rad(phi_min_deg),
                                       np.deg2rad(phi_max_deg))  # диапазон углов
         if noise_enable:
-            self.q = q  # сигнал/шум
+            self._q = q  # сигнал/шум
         else:
-            self.q = float('inf')
-        self.freq_num = freq_num
-        self.ADFR = ADFR(sll1_path, sll2_path, freq_num + 1, phi_min_deg, phi_max_deg, approx_mode, poly_degree)  # Пеленгационная характеристика
-        self.PDFR = PDFR(faz_path, freq_num + 1, approx_mode, poly_degree)  # Фазовая характеристика
-        self.faz_path = faz_path
-        self.phi_pel = np.deg2rad(phi_pel_deg)
-        self.t_arr = np.arange(0, t, 1.0 / f_discr)
+            self._q = float('inf')
+        self._freq_num = freq_num
+        self._ADFR = ADFR(sll1_path, sll2_path, freq_num + 1, phi_min_deg, phi_max_deg, approx_mode, poly_degree)  # Пеленгационная характеристика
+        self._PDFR = PDFR(faz_path, freq_num + 1, approx_mode, poly_degree)  # Фазовая характеристика
+        self._faz_path = faz_path
+        self._phi_pel = np.deg2rad(phi_pel_deg)
+        self._t_arr = np.arange(0, t, 1.0 / f_discr)
         omega_c = 2 * pi * f_c
-        self.E = E(phi_pel_deg, K_n, phi_n_deg, q, noise_enable, omega_c, phi_0_deg, self.ADFR,
-                   self.PDFR, prefilter_en, prefilter_algo, self.t_arr)
+        self._E = E(phi_pel_deg, K_n, phi_n_deg, q, noise_enable, omega_c, phi_0_deg, self._ADFR,
+                   self._PDFR, prefilter_en, prefilter_algo, self._t_arr)
         
-        self.phase_canvas_data = {}
-        self.amp_canvas_data = {}
-        self.ampphase_canvas_data = {}
+        self._phase_canvas_data = {}
+        self._amp_canvas_data = {}
+        self._ampphase_canvas_data = {}
         
 
-    def get_amplitude(self, Ex, Exx):
+    def _calc_amplitude(self, Ex, Exx):
         return math.sqrt((Ex ** 2) + (Exx ** 2))
 
-    def get_phase(self, Ex, Exx):
+    def _calc_phase(self, Ex, Exx):
         return math.atan2(Exx, Ex)
 
-    def amplitude_method(self):
+    def _amplitude_method(self):
         A1_arr, A2_arr = [], []
         phi_arr = []
-        for t in self.t_arr:
-            E1, E11, E2, E22 = self.E.get_E(t)
-            A1 = self.get_amplitude(E1, E11)
-            A2 = self.get_amplitude(E2, E22)
+        for t in self._t_arr:
+            E1, E11, E2, E22 = self._E.get_E(t)
+            A1 = self._calc_amplitude(E1, E11)
+            A2 = self._calc_amplitude(E2, E22)
             A1_arr.append(A1)
             A2_arr.append(A2)
-            phi = self.ADFR.get_phi(20*math.log10((A1)/(A2)))
+            phi = self._ADFR.get_angle(20*math.log10((A1)/(A2)))
             phi_arr.append(phi)
                 
         phi = np.average(phi_arr)
-        phi_approxed = [phi for t in self.t_arr]
+        phi_approxed = [phi for t in self._t_arr]
         
-        self.amp_canvas_data["t_arr"] = self.t_arr
-        self.amp_canvas_data["A1_arr"] = A1_arr
-        self.amp_canvas_data["A2_arr"] = A2_arr
-        self.amp_canvas_data["phi_approxed"] = phi_approxed
-        self.amp_canvas_data["phi_arr"] = phi_arr
+        self._amp_canvas_data["t_arr"] = self._t_arr
+        self._amp_canvas_data["A1_arr"] = A1_arr
+        self._amp_canvas_data["A2_arr"] = A2_arr
+        self._amp_canvas_data["phi_approxed"] = phi_approxed
+        self._amp_canvas_data["phi_arr"] = phi_arr
 
         return phi
     
-        
-    def get_amp_canvas_data(self):
-        return self.amp_canvas_data
-    
-
-    def phase_method(self):
+    def _phase_method(self):
         phase1_arr, phase2_arr = [], []
         delta_phase_arr = []
-        for t in self.t_arr:
-            E1, E11, E2, E22 = self.E.get_E(t)
-            phase1 = self.get_phase(E1, E11)
-            phase2 = self.get_phase(E2, E22)
+        for t in self._t_arr:
+            E1, E11, E2, E22 = self._E.get_E(t)
+            phase1 = self._calc_phase(E1, E11)
+            phase2 = self._calc_phase(E2, E22)
             delta_phase = phase2 - phase1
-            phase1_arr.append(phase1)
-            phase2_arr.append(phase2)
-            delta_phase_arr.append(delta_phase)
-        delta_phase_normed_arr = []
-        for delta_phase in delta_phase_arr:
             if delta_phase > pi:
                 delta_phase = -2 * pi + delta_phase
             if delta_phase < -pi:
                 delta_phase = 2 * pi + delta_phase
-            delta_phase_normed_arr.append(delta_phase)
-        delta_phase = np.average(delta_phase_normed_arr)
-        delta_phase_approxed_arr = [delta_phase for _ in self.t_arr]
-        delta_phase = delta_phase_approxed_arr[0]
+            phase1_arr.append(phase1)
+            phase2_arr.append(phase2)
+            delta_phase_arr.append(delta_phase)
         
-        data = pd.read_csv(self.faz_path, sep='\\t', engine='python')
+        delta_phase = np.average(delta_phase_arr)
+        delta_phase_approxed_arr = [delta_phase for _ in self._t_arr]
+        
+        data = pd.read_csv(self._faz_path, sep='\\t', engine='python')
         data = data.apply(np.deg2rad)
         x_arr = data['X'].values
-        faz_arr = data[data.columns[self.freq_num + 1]].values
+        faz_arr = data[data.columns[self._freq_num + 1]].values
         
-        faz_approxed_arr = [self.PDFR.get_faz(x) for x in x_arr]
-        faz_approxed_normed_arr = [self.PDFR.get_normed_faz(x) for x in x_arr]
+        faz_approxed_arr = [self._PDFR.get_faz(x) for x in x_arr]
+        faz_approxed_normed_arr = [self._PDFR.get_normed_faz(x) for x in x_arr]
         deg_x_arr = np.rad2deg(x_arr)
         
-        dphi_min = self.PDFR.get_faz(self.phi_max)
-        dphi_max = self.PDFR.get_faz(self.phi_min)
-        inters = self.find_phase_intersections(delta_phase, dphi_min, dphi_max)
+        dphi_min = self._PDFR.get_faz(self._phi_max)
+        dphi_max = self._PDFR.get_faz(self._phi_min)
+        inters = self._find_phase_intersections(delta_phase, dphi_min, dphi_max)
         
         deg_inters = np.rad2deg(inters)
 
-        self.phase_canvas_data["t_arr"] = self.t_arr
-        self.phase_canvas_data["phase1_arr"] = phase1_arr
-        self.phase_canvas_data["phase2_arr"] = phase2_arr
-        self.phase_canvas_data["delta_phase_normed_arr"] = delta_phase_normed_arr
-        self.phase_canvas_data["delta_phase_approxed_arr"] = delta_phase_approxed_arr
-        self.phase_canvas_data["deg_x_arr"] = deg_x_arr
-        self.phase_canvas_data["faz_arr"] = faz_arr
-        self.phase_canvas_data["faz_approxed_arr"] = faz_approxed_arr
-        self.phase_canvas_data["faz_approxed_normed_arr"] = faz_approxed_normed_arr
-        self.phase_canvas_data["delta_phase"] = delta_phase
+        self._phase_canvas_data["t_arr"] = self._t_arr
+        self._phase_canvas_data["phase1_arr"] = phase1_arr
+        self._phase_canvas_data["phase2_arr"] = phase2_arr
+        self._phase_canvas_data["delta_phase_arr"] = delta_phase_arr
+        self._phase_canvas_data["delta_phase_approxed_arr"] = delta_phase_approxed_arr
+        self._phase_canvas_data["deg_x_arr"] = deg_x_arr
+        self._phase_canvas_data["faz_arr"] = faz_arr
+        self._phase_canvas_data["faz_approxed_arr"] = faz_approxed_arr
+        self._phase_canvas_data["faz_approxed_normed_arr"] = faz_approxed_normed_arr
+        self._phase_canvas_data["delta_phase"] = delta_phase
              
         return deg_inters
-    
-    def get_phase_canvas_data(self):
-        return self.phase_canvas_data
-        
 
-    def find_phase_intersections(self, delta_phi, dphi_min, dphi_max):
-        f = interpolate.interp1d(self.PDFR.get_faz(np.linspace(self.phi_min, self.phi_max, 1000)), np.linspace(self.phi_min, self.phi_max, 1000), fill_value="extrapolate")
+    def _find_phase_intersections(self, delta_phi, dphi_min, dphi_max):
+        f = interpolate.interp1d(self._PDFR.get_faz(np.linspace(self._phi_min, self._phi_max, 1000)), np.linspace(self._phi_min, self._phi_max, 1000), fill_value="extrapolate")
         inters = [f(delta_phi)]
 
         n = 1
@@ -300,8 +294,8 @@ class DirectionCalculator:
                 break    
         return inters
 
-    def ampphase_method(self, angle_amp, angles_phase):
-        x_arr = np.linspace(0, self.t_arr[-1], 2)
+    def _ampphase_method(self, angle_amp, angles_phase):
+        x_arr = np.linspace(0, self._t_arr[-1], 2)
         
         best = None
         best_diff = None
@@ -310,22 +304,35 @@ class DirectionCalculator:
                 best = phi
                 best_diff = abs(phi - angle_amp)
 
-        self.ampphase_canvas_data["angles_phase"] = angles_phase
-        self.ampphase_canvas_data["best"] = best
-        self.ampphase_canvas_data["x_arr"] = x_arr
-        self.ampphase_canvas_data["angle_amp"] = angle_amp
+        self._ampphase_canvas_data["angles_phase"] = angles_phase
+        self._ampphase_canvas_data["best"] = best
+        self._ampphase_canvas_data["x_arr"] = x_arr
+        self._ampphase_canvas_data["angle_amp"] = angle_amp
         
         return best
     
-    def get_ampphase_canvas_data(self):
-        return self.ampphase_canvas_data
-    
     def calculate(self):
-        angle_amp = self.amplitude_method()
-        angles_phase = self.phase_method()
-        angle = self.ampphase_method(angle_amp, angles_phase)
-        accuracy = self.calculate_accuracy(np.deg2rad(angle))
+        angle_amp = self._amplitude_method()
+        angles_phase = self._phase_method()
+        angle = self._ampphase_method(angle_amp, angles_phase)
+        accuracy = self._calculate_accuracy(np.deg2rad(angle))
         return angle, accuracy
 
-    def calculate_accuracy(self, phi):
-        return (abs((self.q ** 0.5) * (self.PDFR.get_normed_faz(self.phi_pel)) * math.cos(phi)) ** -1)
+    def _calculate_accuracy(self, phi):
+        return (abs((self._q ** 0.5) * (self._PDFR.get_normed_faz(self._phi_pel)) * math.cos(phi)) ** -1)
+
+    def get_canvas_data(self):
+        adfr_canvas_data = self._ADFR.get_canvas_data()
+        e_canvas_data = self._E.get_canvas_data()
+        canvas_data = {
+            "phase": self._phase_canvas_data,
+            "amp": self._amp_canvas_data,
+            "ampphase": self._ampphase_canvas_data,
+            "adfr": adfr_canvas_data,
+            "e": e_canvas_data,
+        }
+        return canvas_data
+    
+    def get_approx_time(self):
+        t = self._ADFR.get_approx_time() + self._PDFR.get_approx_time() + self._E.get_approx_time()
+        return t

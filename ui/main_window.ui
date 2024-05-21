@@ -217,7 +217,7 @@
               <item>
                <widget class="QPushButton" name="submit_button">
                 <property name="text">
-                 <string>Расчет</string>
+                 <string>Старт</string>
                 </property>
                </widget>
               </item>

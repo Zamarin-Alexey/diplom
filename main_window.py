@@ -395,7 +395,7 @@ class Ui_MainWindow(object):
         self.label_2.setText(_translate("MainWindow", "Среднее отклонение:"))
         self.label.setText(_translate("MainWindow", "Среднее время аппроксимации:"))
         self.label_4.setText(_translate("MainWindow", "Число симуляций"))
-        self.submit_button.setText(_translate("MainWindow", "Расчет"))
+        self.submit_button.setText(_translate("MainWindow", "Старт"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.adfr_tab), _translate("MainWindow", "АПХ"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.e_tab), _translate("MainWindow", "E"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.amp_tab), _translate("MainWindow", "Амплитудный метод"))

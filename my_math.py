@@ -58,7 +58,7 @@ def get_approx_func(x_arr, y_arr, mode, poly_degree=10):
         return np.polynomial.laguerre.Laguerre.fit(x_arr, y_arr, poly_degree)
     
     
-def get_filtered_func(x_arr, y_arr, algo, fs, cutoff_freq):   
+def get_filt_func(x_arr, y_arr, algo, fs, cutoff_freq):   
     if algo == FilterAlgo.BUTTER:  # Баттеруорта
         nyq = 0.5 * fs
         normal_cutoff = cutoff_freq / nyq

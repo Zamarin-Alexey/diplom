@@ -76,7 +76,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if dialog.exec():
             self.faz_lineEdit.setText(dialog.selectedFiles()[0])    
             
-    def draw_ADFR(self, canvas_data):
+    def _draw_ADFR(self, canvas_data):
         self.adfr_canvas.figure.clear()
         ax = self.adfr_canvas.figure.subplots()
         
@@ -100,7 +100,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         ax.legend(loc='upper right')
         self.adfr_canvas.draw()
     
-    def draw_E(self, canvas_data):
+    def _draw_E(self, canvas_data):
         t_arr = canvas_data["t_arr"]
         E1_func = canvas_data["E1_func"]
         E11_func = canvas_data["E11_func"]
@@ -116,7 +116,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         ax.plot(t_arr, E22_func(t_arr), label="E22")
         ax.set_xlabel('t, [с]')
         ax.set_ylabel('E, [В]')
-        ax.set_title("Квадратуры на входе приемника")
+        ax.set_title("Квадратурные составляющие сигнала на входе приемника")
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
         ax.grid(True)
@@ -124,7 +124,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         
         self.e_canvas.draw()
     
-    def draw_AMP(self, canvas_data):
+    def _draw_AMP(self, canvas_data):
         t_arr = canvas_data["t_arr"]
         A1_arr = canvas_data["A1_arr"]
         A2_arr = canvas_data["A2_arr"]
@@ -159,7 +159,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         axs[1].set_ylabel('φ, [град.]')
         axs[1].set_title("Вычисленный угол")
         axs[1].set_xlim(0, t_arr[-1])
-        axs[1].set_ylim(-phi_abs_max*1.5, phi_abs_max*1.5)
+        axs[1].set_ylim(min(-45, -phi_abs_max*1.5), max(45, phi_abs_max*1.5))
         axs[1].xaxis.set_major_locator(ticker.AutoLocator())
         axs[1].yaxis.set_minor_locator(ticker.AutoMinorLocator())
         axs[1].grid(True)
@@ -167,11 +167,11 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         
         self.amp_canvas.draw()
     
-    def draw_PHASE(self, canvas_data):
+    def _draw_PHASE(self, canvas_data):
         t_arr = canvas_data["t_arr"]
         phase1_arr = canvas_data["phase1_arr"]
         phase2_arr = canvas_data["phase2_arr"]
-        delta_phase_normed_arr = canvas_data["delta_phase_normed_arr"]
+        delta_phase_arr = canvas_data["delta_phase_arr"]
         delta_phase_approxed_arr = canvas_data["delta_phase_approxed_arr"]
         deg_x_arr = canvas_data["deg_x_arr"]
         faz_arr = canvas_data["faz_arr"]
@@ -184,7 +184,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         
         axs[0].plot(t_arr, np.rad2deg(phase1_arr), label="Фаза1")
         axs[0].plot(t_arr, np.rad2deg(phase2_arr), label="Фаза2")
-        axs[0].plot(t_arr, np.rad2deg(delta_phase_normed_arr), label="Разность фаз")
+        axs[0].plot(t_arr, np.rad2deg(delta_phase_arr), label="Разность фаз")
         axs[0].plot(t_arr, np.rad2deg(delta_phase_approxed_arr), label="Аппрокс. разность фаз")
         
         axs[0].set_xlabel('t, [с]')
@@ -207,7 +207,7 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         axs[1].grid(True)
         axs[1].legend(loc='upper right')
     
-    def draw_AMPPHASE(self, canvas_data):
+    def _draw_AMPPHASE(self, canvas_data):
         x_arr = canvas_data["x_arr"]
         angles_phase = canvas_data["angles_phase"]
         best = canvas_data["best"]
@@ -275,24 +275,24 @@ class CompletedMainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                     freq_num, phi_pel, K_n, phi_n, noise_enable, poly_degree, prefilter_en, prefilter_algo, t, f_discr)
                 
                 angle, accuracy = calc.calculate()
-                approx_time = calc.ADFR.approx_time + calc.PDFR.approx_time + calc.E.filter_time
+                approx_time = calc.get_approx_time()
                 times_arr.append(approx_time)
                 
                 div_v = abs(phi_pel - angle)
                 divs_arr.append(div_v)
-                print("Среднее время вычисления: {} мс".format(approx_time * 1000))
             
-                
             self.res_label.setText('{:.3f}°'.format(angle))
             self.accuracy_label.setText('±{:.3f}°'.format(accuracy))
             self.avg_time_label.setText('{:.3f} мс'.format(sum(times_arr) / len(times_arr) * 1000))
             self.avg_div_label.setText('{:.3f}°'.format(sum(divs_arr) / len(divs_arr)))
             
-            self.draw_ADFR(calc.ADFR.get_canvas_data())
-            self.draw_E(calc.E.get_canvas_data())
-            self.draw_AMP(calc.get_amp_canvas_data())
-            self.draw_PHASE(calc.get_phase_canvas_data())
-            self.draw_AMPPHASE(calc.get_ampphase_canvas_data())
+            cd = calc.get_canvas_data()
+            
+            self._draw_ADFR(cd["adfr"])
+            self._draw_E(cd["e"])
+            self._draw_AMP(cd["amp"])
+            self._draw_PHASE(cd["phase"])
+            self._draw_AMPPHASE(cd["ampphase"])
                 
         except Exception as e:
             error_dialog = QtWidgets.QMessageBox()
